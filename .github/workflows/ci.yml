@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Black check
+        run: black --check .
+
+      - name: Isort check
+        run: isort --check-only .
+
+      - name: Flake8
+        run: flake8 . --max-line-length=120 --extend-ignore=E203,W503 --exclude=.venv,migrations
+
+      - name: Bandit
+        run: bandit -q -c pyproject.toml -r .
+
+      - name: Django check
+        run: python manage.py check
+
+      - name: Django tests
+        run: python manage.py test
