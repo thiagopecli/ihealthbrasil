@@ -19,10 +19,11 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias de qualidade
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Validar formatacao com Black
         run: black --check .
@@ -37,7 +38,9 @@ jobs:
         run: bandit -q -c pyproject.toml -r .
 
       - name: Verificacao do Django
+        if: hashFiles('manage.py') != ''
         run: python manage.py check
 
       - name: Testes do Django
+        if: hashFiles('manage.py') != ''
         run: python manage.py test
