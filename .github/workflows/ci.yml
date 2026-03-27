@@ -1,4 +1,4 @@
-name: CI
+name: Integracao Continua
 
 on:
   pull_request:
@@ -7,27 +7,27 @@ on:
     branches: [main]
 
 jobs:
-  quality:
+  qualidade:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Baixar codigo
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Install dependencies
+      - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Black check
+      - name: Validar formatacao com Black
         run: black --check .
 
-      - name: Isort check
+      - name: Validar ordenacao de imports com Isort
         run: isort --check-only .
 
       - name: Flake8
@@ -36,8 +36,8 @@ jobs:
       - name: Bandit
         run: bandit -q -c pyproject.toml -r .
 
-      - name: Django check
+      - name: Verificacao do Django
         run: python manage.py check
 
-      - name: Django tests
+      - name: Testes do Django
         run: python manage.py test

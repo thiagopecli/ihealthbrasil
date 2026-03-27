@@ -4,13 +4,13 @@
 
 - Branch principal: `main`
 - Branches de trabalho: `feature/<descricao-curta>`
-- Todo merge deve ser via Pull Request
+- Todo merge deve ser via requisicao de pull request
 
-Obs.: protecao da `main` (revisao obrigatoria e status checks) deve ser configurada no GitHub.
+Obs.: protecao da `main` (revisao obrigatoria e validacoes de status) deve ser configurada no GitHub.
 
 ## Convencao de commits
 
-Padrao: Conventional Commits
+Padrao: Commits Convencionais (Conventional Commits)
 
 Exemplos:
 
