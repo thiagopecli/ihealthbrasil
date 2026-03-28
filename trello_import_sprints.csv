@@ -1,0 +1,39 @@
+List,Title,Description,Labels,Priority,Sprint
+Product Backlog,"[Sprint 0] Padrao de branch e protecao da main","Definir fluxo de branch e qualidade de merge.\n- Criar padrao feature/*\n- Proteger branch main\n- Exigir PR para merge","Backend,Processo,Governanca",Alta,Sprint 0
+Product Backlog,"[Sprint 0] Convencao de commits","Padronizar historico de commits para facilitar revisao.\n- Adotar Conventional Commits\n- Publicar guia rapido para o time","Backend,Processo",Media,Sprint 0
+Product Backlog,"[Sprint 0] Pre-commit e padrao de codigo","Automatizar qualidade local antes do push.\n- Configurar black\n- Configurar isort\n- Configurar flake8\n- Configurar bandit","Backend,Qualidade,Security",Alta,Sprint 0
+Product Backlog,"[Sprint 0] CI minimo","Criar esteira basica de confianca.\n- Rodar lint no CI\n- Rodar testes no CI\n- Bloquear merge em falha","Backend,CI-CD,Qualidade",Alta,Sprint 0
+Product Backlog,"[Sprint 1] Bootstrap Django e DRF","Criar projeto base da API.\n- Estruturar projeto Django\n- Configurar env vars\n- SQLite local e PostgreSQL prod","Backend,Arquitetura",Alta,Sprint 1
+Product Backlog,"[Sprint 1] JWT completo","Implementar autenticacao tokenizada.\n- Login\n- Refresh token\n- Logout\n- Revogacao basica","Backend,Auth,Security",Alta,Sprint 1
+Product Backlog,"[Sprint 1] Usuario customizado e RBAC","Criar modelo de usuario e papeis.\n- Perfis: Paciente, Medico, Fornecedor, Admin\n- Permissoes basicas por papel","Backend,Auth,LGPD",Alta,Sprint 1
+Product Backlog,"[Sprint 1] Auditoria base de autenticacao","Registrar eventos sensiveis de acesso.\n- Auditoria de login/logout\n- Revisar logs para nao expor dados sensiveis","LGPD,Security,Observabilidade",Alta,Sprint 1
+Product Backlog,"[Sprint 2] Modelos de catalogo","Modelar dominio principal de produtos.\n- Categoria\n- Produto\n- Variacao","Backend,Catalogo",Alta,Sprint 2
+Product Backlog,"[Sprint 2] Campos regulatorios de saude","Adicionar regras de produtos controlados.\n- exige_prescricao\n- dosagem\n- bula\n- restricao de venda","Saude,LGPD,Catalogo",Alta,Sprint 2
+Product Backlog,"[Sprint 2] CRUD de catalogo","Disponibilizar operacoes para front-end e admin.\n- Criar\n- Editar\n- Listar\n- Remover","Backend,API,Catalogo",Alta,Sprint 2
+Product Backlog,"[Sprint 2] Filtros de catalogo","Permitir busca por regras de negocio.\n- Filtro por categoria\n- Filtro por exige receita","Backend,API,Catalogo",Media,Sprint 2
+Product Backlog,"[Sprint 3] i18n da API","Habilitar internacionalizacao base.\n- pt-BR\n- en-US\n- es-ES\n- fr-FR","i18n,Backend",Alta,Sprint 3
+Product Backlog,"[Sprint 3] Precos por pais e moeda","Modelar precificacao multimoeda.\n- Tabela de preco por moeda\n- Regra de conversao","Financeiro,i18n,Backend",Alta,Sprint 3
+Product Backlog,"[Sprint 3] Resposta por Accept-Language","Retornar idioma/moeda no contexto da requisicao.","i18n,API",Alta,Sprint 3
+Product Backlog,"[Sprint 4] Carrinho e itens","Implementar estrutura de carrinho.\n- Criar carrinho\n- Adicionar item\n- Remover item","Checkout,Backend",Alta,Sprint 4
+Product Backlog,"[Sprint 4] Pedido e status","Modelar pedido no ciclo de compra.\n- Pendente\n- Pago\n- Em Analise Medica\n- Cancelado","Checkout,Orders,Backend",Alta,Sprint 4
+Product Backlog,"[Sprint 4] Checkout inicial","Converter carrinho em pedido pendente com totais.","Checkout,Orders",Alta,Sprint 4
+Product Backlog,"[Sprint 5] Modelo de receita por pedido","Vincular receita medica ao pedido com rastreio.","Saude,LGPD,Prescricao",Alta,Sprint 5
+Product Backlog,"[Sprint 5] Armazenamento seguro S3","Salvar arquivos de receita com acesso privado.\n- Bucket privado\n- URL assinada temporaria","Security,LGPD,Prescricao",Alta,Sprint 5
+Product Backlog,"[Sprint 5] Auditoria de acesso a receita","Rastrear acesso a dados medicos.\n- Quem acessou\n- Quando acessou\n- Origem da acao","LGPD,Audit,Security",Alta,Sprint 5
+Product Backlog,"[Sprint 6] SDK do gateway de pagamento","Configurar integracao inicial com PSP escolhido.","Payment,Backend",Alta,Sprint 6
+Product Backlog,"[Sprint 6] Customer e conta conectada","Preparar entidades para split de pagamento.","Payment,Split,Marketplace",Alta,Sprint 6
+Product Backlog,"[Sprint 6] Intencao de pagamento","Gerar token/link/intencao no fechamento do checkout.","Payment,Checkout",Alta,Sprint 6
+Product Backlog,"[Sprint 7] Regra de split financeiro","Calcular comissao iHealth e valor do fornecedor.","Payment,Split,Financeiro",Alta,Sprint 7
+Product Backlog,"[Sprint 7] Endpoint de webhook seguro","Receber eventos do gateway com validacao de assinatura.","Payment,Security,Webhooks",Alta,Sprint 7
+Product Backlog,"[Sprint 7] Atualizacao automatica de pedido","Atualizar status do pedido por evento real de pagamento.","Orders,Payment,Automacao",Alta,Sprint 7
+Product Backlog,"[Sprint 8] Integracao Memed ou SMS","Conectar API externa de prescricao ou mensageria.","Integracao,Saude,SMS",Alta,Sprint 8
+Product Backlog,"[Sprint 8] Tarefas assincronas com Celery","Mover chamadas de terceiros para fila com Redis.","Integracao,Async,Backend",Alta,Sprint 8
+Product Backlog,"[Sprint 8] Notificacao por status de pedido","Disparar comunicacoes automaticas por eventos.","Integracao,Orders,SMS",Media,Sprint 8
+Product Backlog,"[Sprint 9] Endpoints do fornecedor","Permitir gestao de produtos com regra de ownership.","Fornecedor,API,Marketplace",Alta,Sprint 9
+Product Backlog,"[Sprint 9] Dashboard financeiro do parceiro","Exibir vendas, extrato de split e filtros por periodo.","Fornecedor,Financeiro,Split",Alta,Sprint 9
+Product Backlog,"[Sprint 10] Otimizacao de queries","Eliminar N+1 com select_related e prefetch_related.","Performance,Backend",Alta,Sprint 10
+Product Backlog,"[Sprint 10] Documentacao OpenAPI","Publicar Swagger/drf-yasg com exemplos reais.","Documentacao,API",Media,Sprint 10
+Product Backlog,"[Sprint 10] Deploy e hardening","Finalizar dockerizacao, CI/CD e revisao de seguranca.","Deploy,CI-CD,Security",Alta,Sprint 10
+Product Backlog,"[Governanca] Checklist Compliance (template)","Usar em toda sprint.\n- Endpoint novo com permissao explicita\n- Sem log sensivel\n- Auditoria para receita\n- Politica de retencao","LGPD,Governanca,Security",Alta,Template
+Product Backlog,"[Governanca] Checklist NFR (template)","Usar em toda sprint.\n- p95 endpoint critico < 500ms\n- Taxa de erro no alvo\n- Disponibilidade no alvo","NFR,Governanca,Performance",Alta,Template
+Product Backlog,"[Governanca] Checklist Observabilidade (template)","Usar em toda sprint.\n- Logs estruturados ativos\n- correlation_id presente\n- Dashboard/alerta atualizado","Observabilidade,Governanca",Alta,Template

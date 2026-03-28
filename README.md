@@ -111,25 +111,14 @@ Exemplo de payload para login:
 }
 ```
 
-### Configuracao de seguranca aplicada
-
-- DRF com autenticacao padrao via JWT
-- Permissao padrao global: `IsAuthenticated`
-- Rotacao de refresh token habilitada
 - Blacklist de refresh token apos rotacao habilitada
 
 ### Variaveis de ambiente JWT (opcionais)
 
 ```env
-JWT_ACCESS_MINUTES=15
-JWT_REFRESH_DAYS=7
-JWT_ROTATE_REFRESH_TOKENS=True
-JWT_BLACKLIST_AFTER_ROTATION=True
 ```
 
 ### Migracoes necessarias
-
-Como o blacklist foi habilitado, execute migracoes antes de rodar o servidor:
 
 ```bash
 python manage.py migrate
@@ -147,13 +136,11 @@ Criacao de modelo de usuario customizado no app `accounts`, separado por perfis 
 
 Configuracao aplicada:
 
-- `AUTH_USER_MODEL = "accounts.User"`
 - Campo `profile` no usuario com `choices` e indice no banco
 - Registro no Django Admin com exibicao e filtro por perfil
 
 ### Importante sobre banco local (SQLite)
 
-Como este projeto ja tinha migracoes aplicadas com o usuario padrao do Django, ao trocar para `AUTH_USER_MODEL` customizado e necessario recriar o banco local de desenvolvimento.
 
 Windows PowerShell:
 
@@ -165,7 +152,6 @@ python manage.py createsuperuser
 
 Linux/macOS:
 
-```bash
 rm -f db.sqlite3
 python manage.py migrate
 python manage.py createsuperuser
@@ -178,46 +164,17 @@ API de autenticacao entregue com endpoints de registro, login, logout e renovaca
 ### Endpoints de autenticacao
 
 - `POST /api/auth/register/` -> registro de usuario
-- `POST /api/auth/token/` -> login (obtem access/refresh)
-- `POST /api/auth/token/refresh/` -> renova access token
-- `POST /api/auth/logout/` -> invalida refresh token (blacklist)
-- `GET /api/auth/me/` -> dados do usuario autenticado
-
 ### RBAC basico por perfil
-
-Perfis no usuario customizado:
-
-- `PATIENT`
-- `DOCTOR`
-- `PROVIDER`
-- `ADMIN`
-
-Regras de permissao implementadas:
-
-- `GET /api/auth/rbac/admin-only/` -> somente `ADMIN`
-- `GET /api/auth/rbac/provider-or-admin/` -> `PROVIDER` ou `ADMIN`
 
 ### Exemplo de logout
 
 Envie o refresh token no corpo da requisicao:
-
-```json
-{
-	"refresh": "<refresh_token>"
-}
 ```
 
 ### Banco por ambiente
-
-- Ambiente local (`DJANGO_ENV=development`):
-	- Se `DATABASE_URL` estiver vazio, usa SQLite automaticamente (`db.sqlite3`).
-
 - Ambiente producao (`DJANGO_ENV=production`):
 	- `DATABASE_URL` obrigatorio (PostgreSQL).
 	- `SECRET_KEY` obrigatorio.
-	- `DEBUG=False` recomendado.
-
-Exemplo de URL PostgreSQL:
 
 ```text
 DATABASE_URL=postgresql://usuario:senha@host:5432/nome_do_banco
@@ -225,14 +182,9 @@ DATABASE_URL=postgresql://usuario:senha@host:5432/nome_do_banco
 
 ## Objetivo do projeto
 
-Construir um marketplace robusto, seguro e escalavel para:
-
-- venda de produtos de saude mental e terapias;
-- controle de produtos com exigencia de prescricao medica;
 - operacao com split de pagamento entre marketplace e fornecedor;
 - suporte nativo a multiplos idiomas e moedas.
 
-## Stack proposta
 
 - Back-end: Python + Django + Django REST Framework
 - Banco producao: PostgreSQL
@@ -241,7 +193,6 @@ Construir um marketplace robusto, seguro e escalavel para:
 - Armazenamento de arquivos: S3 compativel
 - Observabilidade: Sentry + OpenTelemetry + logs estruturados JSON
 
-## Principios de arquitetura
 
 - Seguranca por padrao (security by default)
 - Compliance by design (LGPD e trilhas de auditoria desde o inicio)
@@ -251,7 +202,6 @@ Construir um marketplace robusto, seguro e escalavel para:
 
 ## Estrutura inicial de dominios (apps Django)
 
-- core: configuracoes comuns, utilitarios, classes base
 - accounts: usuarios, papeis, permissoes, MFA, consentimentos
 - catalog: produtos, categorias, composicao, bula, restricoes de uso
 - prescriptions: upload/validacao de receita, status, auditoria
@@ -261,47 +211,174 @@ Construir um marketplace robusto, seguro e escalavel para:
 - providers: cadastro de fornecedores e compliance do seller
 - international: idioma, pais, moeda, conversao
 - audit: trilha imutavel de eventos sensiveis
-- notifications: email, SMS, webhooks
 
-## Modelagem de dados (visao de alto nivel)
-
-Entidades centrais:
-
-- User
-- PatientProfile
-- ProviderProfile
-- Product
-- ProductRegulatoryRule
 - Prescription
-- PrescriptionValidation
-- Cart
-- Order
-- OrderItem
-- PaymentTransaction
 - PaymentSplit
 - Payout
 - CurrencyRate
-- LocalizedContent
-- AuditEvent
-
-Relacionamentos criticos:
-
 - Product 1:N ProductRegulatoryRule
 - Order 1:N OrderItem
 - Order 1:N PaymentSplit
-- Prescription 1:N PrescriptionValidation
-- User 1:N AuditEvent
-
-Campos importantes para produtos controlados:
-
 - requires_prescription (bool)
 - active_ingredient
 - dosage
 - controlled_substance_class
-- regulatory_notes
-- min_age
-- contraindications (JSON)
-- requires_medical_follow_up (bool)
+
+## Sprint 02 - Primeira tarefa concluida
+
+Criacao dos modelos de catálogo de produtos com suporte a variações.
+
+### Modelos criados
+
+- **Category**: Categoria de produtos
+  - `name`: Nome único da categoria
+  - `description`: Descrição (opcional)
+  - `slug`: Slug único para URLs
+  - Índices: `slug`
+
+- **Product**: Produto do marketplace
+  - `category`: ForeignKey para Category
+  - `name`: Nome do produto
+  - `description`: Descrição completa
+  - `price`: Preço decimal com 2 casas
+  - `requires_prescription`: Flag para produtos que requerem prescrição
+  - `stock`: Quantidade em estoque
+  - `sku`: SKU único para inventário
+  - `slug`: Slug para URLs
+  - `is_active`: Flag de ativação (índice)
+  - Índices: `slug`, `is_active`, `sku`, `(category, is_active)`
+
+- **ProductVariation**: Variações de um produto (tamanho, cor, concentração, etc)
+  - `product`: ForeignKey para Product
+  - `name`: Nome da variação (ex: "Tamanho", "Cor", "Concentração")
+  - `value`: Valor específico (ex: "P", "M", "G" ou "Azul", "Vermelho")
+  - `sku_suffix`: Sufixo para completar SKU único
+  - `price_modifier`: Adicional ao preço base
+  - `stock`: Estoque específico desta variação
+  - Propriedade calculada: `final_price` (price do product + price_modifier)
+  - Unique constraint: `(product, name, value)`
+  - Índices: `product`, `(product, name)`
+
+### API REST endpoints
+
+- `GET /api/categories/` -> lista categorias
+- `POST /api/categories/` -> criar categoria (admin only)
+- `GET /api/categories/{slug}/` -> detalhes da categoria
+- `PUT/PATCH /api/categories/{slug}/` -> atualizar categoria (admin)
+- `DELETE /api/categories/{slug}/` -> deletar categoria (admin)
+
+- `GET /api/products/` -> lista produtos ativos (com filtro por categoria)
+- `POST /api/products/` -> criar produto (admin only)
+- `GET /api/products/{slug}/` -> detalhes do produto com variações
+- `PUT/PATCH /api/products/{slug}/` -> atualizar produto (admin)
+- `DELETE /api/products/{slug}/` -> deletar produto (admin)
+- `GET /api/products/requires_prescription/` -> lista produtos com prescrição
+- `GET /api/products/{slug}/variations/` -> lista variações de um produto
+
+- `GET /api/variations/` -> lista variações (com filtro por product)
+- `POST /api/variations/` -> criar variação (admin only)
+- `GET /api/variations/{id}/` -> detalhes da variação
+- `PUT/PATCH /api/variations/{id}/` -> atualizar variação (admin)
+- `DELETE /api/variations/{id}/` -> deletar variação (admin)
+
+### Serializers
+
+- `CategorySerializer`: Criação/listagem de categorias
+- `ProductListSerializer`: Listagem simplificada de produtos
+- `ProductDetailSerializer`: Detalhes completos com variações
+- `ProductCreateUpdateSerializer`: Criação/atualização de produtos
+- `ProductVariationSerializer`: CRUD de variações
+
+### Admin Django
+
+- Registro de Category, Product e ProductVariation
+- Inline para adicionar variações direto na tela de edição de produto
+- Filtros por: categoria, prescrição, ativação, data
+- Busca por: nome, SKU, slug
+
+### Validações e configurações
+
+- `max-line-length = 120` para flake8 (arquivo `.flake8`)
+- Admin em português (verbose_name, verbose_name_plural)
+- Pre-commit e CI completamente funcional para o novo app
+
+## Sprint 02 - Segunda tarefa concluida
+
+Campos específicos para a área da saúde: dosagem, bulas e restrições de venda.
+
+### Campos expandidos no Product
+
+- `active_ingredient`: Princípio ativo (texto)
+- `controlled_substance_class`: Classificação de substância controlada (ex: C1, C4)
+- `min_age_required`: Idade mínima permitida para compra (0 = sem restrição)
+- `max_age_allowed`: Idade máxima permitida para compra (0 = sem restrição)
+
+### Novos modelos criados
+
+- **ProductDosage**: Informações de dosagem para um produto
+  - `product`: ForeignKey para Product
+  - `strength`: Força/concentração (ex: 500mg, 10mg/5mL, 2%)
+  - `unit`: Unidade de medida (mg, mcg, g, %)
+  - `frequency_recommendation`: Frequência recomendada (ex: 2x ao dia)
+  - `is_default`: Flag para dosagem padrão
+  - Unique constraint: `(product, strength, unit)`
+  - Índices: `product`, `(product, is_default)`
+
+- **ProductPackageInsert**: Bula/Insert de embalagem (documento PDF)
+  - `product`: ForeignKey para Product
+  - `language`: Idioma (pt_BR, en_US, es_ES)
+  - `title`: Título da bula (opcional)
+  - `content`: Conteúdo em HTML ou texto
+  - `file_url`: URL de arquivo PDF
+  - `requires_prescription_note`: Flag se marca "Venda sob prescrição"
+  - Unique constraint: `(product, language)`
+  - Índices: `product`, `language`
+
+- **SalesRestriction**: Restrições de venda para um produto
+  - `product`: ForeignKey para Product
+  - `restriction_type`: Tipo de restrição (age_min, age_max, region, professional_required, license_required, custom)
+  - `description`: Descrição humanizada da restrição
+  - `detail`: Detalhes técnicos/completos (opcional)
+  - `is_active`: Flag de ativação
+  - Índices: `product`, `restriction_type`, `(product, is_active)`
+
+### API REST endpoints
+
+- `GET /api/dosages/` -> lista dosagens (filtro por product)
+- `POST /api/dosages/` -> criar dosagem (admin only)
+- `GET /api/dosages/{id}/` -> detalhes dosagem
+- `PUT/PATCH /api/dosages/{id}/` -> atualizar dosagem (admin)
+- `DELETE /api/dosages/{id}/` -> deletar dosagem (admin)
+
+- `GET /api/package-inserts/` -> lista bulas (filtro por product)
+- `POST /api/package-inserts/` -> criar bula (admin only)
+- `GET /api/package-inserts/{id}/` -> detalhes bula
+- `PUT/PATCH /api/package-inserts/{id}/` -> atualizar bula (admin)
+- `DELETE /api/package-inserts/{id}/` -> deletar bula (admin)
+
+- `GET /api/sales-restrictions/` -> lista restrições (filtro por product)
+- `POST /api/sales-restrictions/` -> criar restrição (admin only)
+- `GET /api/sales-restrictions/{id}/` -> detalhes restrição
+- `PUT/PATCH /api/sales-restrictions/{id}/` -> atualizar restrição (admin)
+- `DELETE /api/sales-restrictions/{id}/` -> deletar restrição (admin)
+
+### Serializers adicionados
+
+- `ProductDosageSerializer`: CRUD de dosagens
+- `ProductPackageInsertSerializer`: CRUD de bulas
+- `SalesRestrictionSerializer`: CRUD de restrições
+- `ProductDetailSerializer` atualizado: inclui dosages, package_inserts, sales_restrictions
+- `ProductCreateUpdateSerializer` atualizado: novos campos de health
+
+### Admin Django expandido
+
+- Inlines para adicionar dosagens, bulas e restrições direto da tela de produto
+- Novo admin para ProductDosage com filtros por unit e is_default
+- Novo admin para ProductPackageInsert com filtros por language e restrição de prescrição
+- Novo admin para SalesRestriction com filtros por tipo e ativação
+- Busca expandida: agora inclui active_ingredient
+
+
 
 ## Fluxo de prescricao (resumo)
 
