@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from products.models import Category, Product, ProductVariation
+from products.models import Category, Product, ProductDosage, ProductPackageInsert, ProductVariation, SalesRestriction
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -33,6 +33,58 @@ class ProductVariationSerializer(serializers.ModelSerializer):
         return obj.final_price
 
 
+class ProductDosageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductDosage
+        fields = [
+            "id",
+            "strength",
+            "unit",
+            "frequency_recommendation",
+            "is_default",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class ProductPackageInsertSerializer(serializers.ModelSerializer):
+    language_display = serializers.CharField(source="get_language_display", read_only=True)
+
+    class Meta:
+        model = ProductPackageInsert
+        fields = [
+            "id",
+            "language",
+            "language_display",
+            "title",
+            "content",
+            "file_url",
+            "requires_prescription_note",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class SalesRestrictionSerializer(serializers.ModelSerializer):
+    restriction_type_display = serializers.CharField(source="get_restriction_type_display", read_only=True)
+
+    class Meta:
+        model = SalesRestriction
+        fields = [
+            "id",
+            "restriction_type",
+            "restriction_type_display",
+            "description",
+            "detail",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
 class ProductListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listar produtos."""
 
@@ -58,6 +110,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
     category = CategorySerializer(read_only=True)
     variations = ProductVariationSerializer(many=True, read_only=True)
+    dosages = ProductDosageSerializer(many=True, read_only=True)
+    package_inserts = ProductPackageInsertSerializer(many=True, read_only=True)
+    sales_restrictions = SalesRestrictionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -68,11 +123,18 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "requires_prescription",
+            "active_ingredient",
+            "controlled_substance_class",
+            "min_age_required",
+            "max_age_allowed",
             "stock",
             "sku",
             "is_active",
             "category",
             "variations",
+            "dosages",
+            "package_inserts",
+            "sales_restrictions",
             "created_at",
             "updated_at",
         ]
@@ -89,6 +151,10 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "requires_prescription",
+            "active_ingredient",
+            "controlled_substance_class",
+            "min_age_required",
+            "max_age_allowed",
             "stock",
             "sku",
             "category",
