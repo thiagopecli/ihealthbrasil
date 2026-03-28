@@ -111,25 +111,14 @@ Exemplo de payload para login:
 }
 ```
 
-### Configuracao de seguranca aplicada
-
-- DRF com autenticacao padrao via JWT
-- Permissao padrao global: `IsAuthenticated`
-- Rotacao de refresh token habilitada
 - Blacklist de refresh token apos rotacao habilitada
 
 ### Variaveis de ambiente JWT (opcionais)
 
 ```env
-JWT_ACCESS_MINUTES=15
-JWT_REFRESH_DAYS=7
-JWT_ROTATE_REFRESH_TOKENS=True
-JWT_BLACKLIST_AFTER_ROTATION=True
 ```
 
 ### Migracoes necessarias
-
-Como o blacklist foi habilitado, execute migracoes antes de rodar o servidor:
 
 ```bash
 python manage.py migrate
@@ -147,13 +136,11 @@ Criacao de modelo de usuario customizado no app `accounts`, separado por perfis 
 
 Configuracao aplicada:
 
-- `AUTH_USER_MODEL = "accounts.User"`
 - Campo `profile` no usuario com `choices` e indice no banco
 - Registro no Django Admin com exibicao e filtro por perfil
 
 ### Importante sobre banco local (SQLite)
 
-Como este projeto ja tinha migracoes aplicadas com o usuario padrao do Django, ao trocar para `AUTH_USER_MODEL` customizado e necessario recriar o banco local de desenvolvimento.
 
 Windows PowerShell:
 
@@ -165,7 +152,6 @@ python manage.py createsuperuser
 
 Linux/macOS:
 
-```bash
 rm -f db.sqlite3
 python manage.py migrate
 python manage.py createsuperuser
@@ -178,46 +164,17 @@ API de autenticacao entregue com endpoints de registro, login, logout e renovaca
 ### Endpoints de autenticacao
 
 - `POST /api/auth/register/` -> registro de usuario
-- `POST /api/auth/token/` -> login (obtem access/refresh)
-- `POST /api/auth/token/refresh/` -> renova access token
-- `POST /api/auth/logout/` -> invalida refresh token (blacklist)
-- `GET /api/auth/me/` -> dados do usuario autenticado
-
 ### RBAC basico por perfil
-
-Perfis no usuario customizado:
-
-- `PATIENT`
-- `DOCTOR`
-- `PROVIDER`
-- `ADMIN`
-
-Regras de permissao implementadas:
-
-- `GET /api/auth/rbac/admin-only/` -> somente `ADMIN`
-- `GET /api/auth/rbac/provider-or-admin/` -> `PROVIDER` ou `ADMIN`
 
 ### Exemplo de logout
 
 Envie o refresh token no corpo da requisicao:
-
-```json
-{
-	"refresh": "<refresh_token>"
-}
 ```
 
 ### Banco por ambiente
-
-- Ambiente local (`DJANGO_ENV=development`):
-	- Se `DATABASE_URL` estiver vazio, usa SQLite automaticamente (`db.sqlite3`).
-
 - Ambiente producao (`DJANGO_ENV=production`):
 	- `DATABASE_URL` obrigatorio (PostgreSQL).
 	- `SECRET_KEY` obrigatorio.
-	- `DEBUG=False` recomendado.
-
-Exemplo de URL PostgreSQL:
 
 ```text
 DATABASE_URL=postgresql://usuario:senha@host:5432/nome_do_banco
@@ -225,14 +182,9 @@ DATABASE_URL=postgresql://usuario:senha@host:5432/nome_do_banco
 
 ## Objetivo do projeto
 
-Construir um marketplace robusto, seguro e escalavel para:
-
-- venda de produtos de saude mental e terapias;
-- controle de produtos com exigencia de prescricao medica;
 - operacao com split de pagamento entre marketplace e fornecedor;
 - suporte nativo a multiplos idiomas e moedas.
 
-## Stack proposta
 
 - Back-end: Python + Django + Django REST Framework
 - Banco producao: PostgreSQL
@@ -241,7 +193,6 @@ Construir um marketplace robusto, seguro e escalavel para:
 - Armazenamento de arquivos: S3 compativel
 - Observabilidade: Sentry + OpenTelemetry + logs estruturados JSON
 
-## Principios de arquitetura
 
 - Seguranca por padrao (security by default)
 - Compliance by design (LGPD e trilhas de auditoria desde o inicio)
@@ -251,7 +202,6 @@ Construir um marketplace robusto, seguro e escalavel para:
 
 ## Estrutura inicial de dominios (apps Django)
 
-- core: configuracoes comuns, utilitarios, classes base
 - accounts: usuarios, papeis, permissoes, MFA, consentimentos
 - catalog: produtos, categorias, composicao, bula, restricoes de uso
 - prescriptions: upload/validacao de receita, status, auditoria
@@ -261,39 +211,14 @@ Construir um marketplace robusto, seguro e escalavel para:
 - providers: cadastro de fornecedores e compliance do seller
 - international: idioma, pais, moeda, conversao
 - audit: trilha imutavel de eventos sensiveis
-- notifications: email, SMS, webhooks
 
-## Modelagem de dados (visao de alto nivel)
-
-Entidades centrais:
-
-- User
-- PatientProfile
-- ProviderProfile
-- Product
-- ProductRegulatoryRule
 - Prescription
-- PrescriptionValidation
-- Cart
-- Order
-- OrderItem
-- PaymentTransaction
 - PaymentSplit
 - Payout
 - CurrencyRate
-- LocalizedContent
-- AuditEvent
-
-Relacionamentos criticos:
-
 - Product 1:N ProductRegulatoryRule
 - Order 1:N OrderItem
 - Order 1:N PaymentSplit
-- Prescription 1:N PrescriptionValidation
-- User 1:N AuditEvent
-
-Campos importantes para produtos controlados:
-
 - requires_prescription (bool)
 - active_ingredient
 - dosage
