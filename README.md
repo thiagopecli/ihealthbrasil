@@ -298,6 +298,85 @@ Campos importantes para produtos controlados:
 - active_ingredient
 - dosage
 - controlled_substance_class
+
+## Sprint 02 - Primeira tarefa concluida
+
+Criacao dos modelos de catálogo de produtos com suporte a variações.
+
+### Modelos criados
+
+- **Category**: Categoria de produtos
+  - `name`: Nome único da categoria
+  - `description`: Descrição (opcional)
+  - `slug`: Slug único para URLs
+  - Índices: `slug`
+
+- **Product**: Produto do marketplace
+  - `category`: ForeignKey para Category
+  - `name`: Nome do produto
+  - `description`: Descrição completa
+  - `price`: Preço decimal com 2 casas
+  - `requires_prescription`: Flag para produtos que requerem prescrição
+  - `stock`: Quantidade em estoque
+  - `sku`: SKU único para inventário
+  - `slug`: Slug para URLs
+  - `is_active`: Flag de ativação (índice)
+  - Índices: `slug`, `is_active`, `sku`, `(category, is_active)`
+
+- **ProductVariation**: Variações de um produto (tamanho, cor, concentração, etc)
+  - `product`: ForeignKey para Product
+  - `name`: Nome da variação (ex: "Tamanho", "Cor", "Concentração")
+  - `value`: Valor específico (ex: "P", "M", "G" ou "Azul", "Vermelho")
+  - `sku_suffix`: Sufixo para completar SKU único
+  - `price_modifier`: Adicional ao preço base
+  - `stock`: Estoque específico desta variação
+  - Propriedade calculada: `final_price` (price do product + price_modifier)
+  - Unique constraint: `(product, name, value)`
+  - Índices: `product`, `(product, name)`
+
+### API REST endpoints
+
+- `GET /api/categories/` -> lista categorias
+- `POST /api/categories/` -> criar categoria (admin only)
+- `GET /api/categories/{slug}/` -> detalhes da categoria
+- `PUT/PATCH /api/categories/{slug}/` -> atualizar categoria (admin)
+- `DELETE /api/categories/{slug}/` -> deletar categoria (admin)
+
+- `GET /api/products/` -> lista produtos ativos (com filtro por categoria)
+- `POST /api/products/` -> criar produto (admin only)
+- `GET /api/products/{slug}/` -> detalhes do produto com variações
+- `PUT/PATCH /api/products/{slug}/` -> atualizar produto (admin)
+- `DELETE /api/products/{slug}/` -> deletar produto (admin)
+- `GET /api/products/requires_prescription/` -> lista produtos com prescrição
+- `GET /api/products/{slug}/variations/` -> lista variações de um produto
+
+- `GET /api/variations/` -> lista variações (com filtro por product)
+- `POST /api/variations/` -> criar variação (admin only)
+- `GET /api/variations/{id}/` -> detalhes da variação
+- `PUT/PATCH /api/variations/{id}/` -> atualizar variação (admin)
+- `DELETE /api/variations/{id}/` -> deletar variação (admin)
+
+### Serializers
+
+- `CategorySerializer`: Criação/listagem de categorias
+- `ProductListSerializer`: Listagem simplificada de produtos
+- `ProductDetailSerializer`: Detalhes completos com variações
+- `ProductCreateUpdateSerializer`: Criação/atualização de produtos
+- `ProductVariationSerializer`: CRUD de variações
+
+### Admin Django
+
+- Registro de Category, Product e ProductVariation
+- Inline para adicionar variações direto na tela de edição de produto
+- Filtros por: categoria, prescrição, ativação, data
+- Busca por: nome, SKU, slug
+
+### Validações e configurações
+
+- `max-line-length = 120` para flake8 (arquivo `.flake8`)
+- Admin em português (verbose_name, verbose_name_plural)
+- Pre-commit e CI completamente funcional para o novo app
+
 - regulatory_notes
 - min_age
 - contraindications (JSON)
