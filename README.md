@@ -377,10 +377,83 @@ Criacao dos modelos de catálogo de produtos com suporte a variações.
 - Admin em português (verbose_name, verbose_name_plural)
 - Pre-commit e CI completamente funcional para o novo app
 
-- regulatory_notes
-- min_age
-- contraindications (JSON)
-- requires_medical_follow_up (bool)
+## Sprint 02 - Segunda tarefa concluida
+
+Campos específicos para a área da saúde: dosagem, bulas e restrições de venda.
+
+### Campos expandidos no Product
+
+- `active_ingredient`: Princípio ativo (texto)
+- `controlled_substance_class`: Classificação de substância controlada (ex: C1, C4)
+- `min_age_required`: Idade mínima permitida para compra (0 = sem restrição)
+- `max_age_allowed`: Idade máxima permitida para compra (0 = sem restrição)
+
+### Novos modelos criados
+
+- **ProductDosage**: Informações de dosagem para um produto
+  - `product`: ForeignKey para Product
+  - `strength`: Força/concentração (ex: 500mg, 10mg/5mL, 2%)
+  - `unit`: Unidade de medida (mg, mcg, g, %)
+  - `frequency_recommendation`: Frequência recomendada (ex: 2x ao dia)
+  - `is_default`: Flag para dosagem padrão
+  - Unique constraint: `(product, strength, unit)`
+  - Índices: `product`, `(product, is_default)`
+
+- **ProductPackageInsert**: Bula/Insert de embalagem (documento PDF)
+  - `product`: ForeignKey para Product
+  - `language`: Idioma (pt_BR, en_US, es_ES)
+  - `title`: Título da bula (opcional)
+  - `content`: Conteúdo em HTML ou texto
+  - `file_url`: URL de arquivo PDF
+  - `requires_prescription_note`: Flag se marca "Venda sob prescrição"
+  - Unique constraint: `(product, language)`
+  - Índices: `product`, `language`
+
+- **SalesRestriction**: Restrições de venda para um produto
+  - `product`: ForeignKey para Product
+  - `restriction_type`: Tipo de restrição (age_min, age_max, region, professional_required, license_required, custom)
+  - `description`: Descrição humanizada da restrição
+  - `detail`: Detalhes técnicos/completos (opcional)
+  - `is_active`: Flag de ativação
+  - Índices: `product`, `restriction_type`, `(product, is_active)`
+
+### API REST endpoints
+
+- `GET /api/dosages/` -> lista dosagens (filtro por product)
+- `POST /api/dosages/` -> criar dosagem (admin only)
+- `GET /api/dosages/{id}/` -> detalhes dosagem
+- `PUT/PATCH /api/dosages/{id}/` -> atualizar dosagem (admin)
+- `DELETE /api/dosages/{id}/` -> deletar dosagem (admin)
+
+- `GET /api/package-inserts/` -> lista bulas (filtro por product)
+- `POST /api/package-inserts/` -> criar bula (admin only)
+- `GET /api/package-inserts/{id}/` -> detalhes bula
+- `PUT/PATCH /api/package-inserts/{id}/` -> atualizar bula (admin)
+- `DELETE /api/package-inserts/{id}/` -> deletar bula (admin)
+
+- `GET /api/sales-restrictions/` -> lista restrições (filtro por product)
+- `POST /api/sales-restrictions/` -> criar restrição (admin only)
+- `GET /api/sales-restrictions/{id}/` -> detalhes restrição
+- `PUT/PATCH /api/sales-restrictions/{id}/` -> atualizar restrição (admin)
+- `DELETE /api/sales-restrictions/{id}/` -> deletar restrição (admin)
+
+### Serializers adicionados
+
+- `ProductDosageSerializer`: CRUD de dosagens
+- `ProductPackageInsertSerializer`: CRUD de bulas
+- `SalesRestrictionSerializer`: CRUD de restrições
+- `ProductDetailSerializer` atualizado: inclui dosages, package_inserts, sales_restrictions
+- `ProductCreateUpdateSerializer` atualizado: novos campos de health
+
+### Admin Django expandido
+
+- Inlines para adicionar dosagens, bulas e restrições direto da tela de produto
+- Novo admin para ProductDosage com filtros por unit e is_default
+- Novo admin para ProductPackageInsert com filtros por language e restrição de prescrição
+- Novo admin para SalesRestriction com filtros por tipo e ativação
+- Busca expandida: agora inclui active_ingredient
+
+
 
 ## Fluxo de prescricao (resumo)
 
