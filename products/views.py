@@ -1,8 +1,11 @@
-from rest_framework import viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from products.models import Category, Product, ProductDosage, ProductPackageInsert, ProductVariation, SalesRestriction
+from products.permissions import IsAdminOrReadOnly
 from products.serializers import (
     CategorySerializer,
     ProductCreateUpdateSerializer,
@@ -15,19 +18,64 @@ from products.serializers import (
 )
 
 
+class StandardResultsSetPagination(PageNumberPagination):
+    """Paginação padrão para endpoints de listagem."""
+
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class CategoryViewSet(viewsets.ModelViewSet):
     """CRUD de categorias de produtos."""
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     lookup_field = "slug"
+    permission_classes = [IsAdminOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["name"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "created_at"]
+    ordering = ["name"]
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    """CRUD de produtos."""
+    """CRUD completo de produtos com filtros avançados."""
 
-    queryset = Product.objects.filter(is_active=True).prefetch_related("variations")
+    queryset = (
+        Product.objects.filter(is_active=True)
+        .prefetch_related("variations", "dosages", "package_inserts")
+        .select_related("category")
+    )
     lookup_field = "slug"
+    permission_classes = [IsAdminOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = [
+        "category",
+        "requires_prescription",
+        "is_active",
+        "min_age_required",
+        "max_age_allowed",
+    ]
+    search_fields = [
+        "name",
+        "description",
+        "sku",
+        "active_ingredient",
+    ]
+    ordering_fields = ["name", "price", "created_at", "stock"]
+    ordering = ["-created_at"]
 
     def get_serializer_class(self):
         """Retorna o serializer apropriado baseado na ação."""
@@ -40,7 +88,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filtra produtos por categoria se parametro fornecido."""
         queryset = super().get_queryset()
-        category_slug = self.request.query_params.get("category")
+        category_slug = self.request.query_params.get("category_slug")
         if category_slug:
             queryset = queryset.filter(category__slug=category_slug)
         return queryset
@@ -49,6 +97,10 @@ class ProductViewSet(viewsets.ModelViewSet):
     def requires_prescription(self, request):
         """Retorna apenas produtos que requerem prescrição."""
         products = self.get_queryset().filter(requires_prescription=True)
+        page = self.paginate_queryset(products)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
 
@@ -58,64 +110,144 @@ class ProductViewSet(viewsets.ModelViewSet):
         product = self.get_object()
         variations = product.variations.all()
         serializer = ProductVariationSerializer(variations, many=True)
-        return Response(serializer.data)
+        return Response({"product_slug": slug, "variations": serializer.data})
+
+    @action(detail=True, methods=["get"])
+    def dosages(self, request, slug=None):
+        """Retorna dosagens de um produto específico."""
+        product = self.get_object()
+        dosages = product.dosages.all()
+        serializer = ProductDosageSerializer(dosages, many=True)
+        return Response({"product_slug": slug, "dosages": serializer.data})
+
+    @action(detail=True, methods=["get"])
+    def package_inserts(self, request, slug=None):
+        """Retorna bulas de um produto específico."""
+        product = self.get_object()
+        package_inserts = product.package_inserts.all()
+        serializer = ProductPackageInsertSerializer(package_inserts, many=True)
+        return Response({"product_slug": slug, "package_inserts": serializer.data})
+
+    @action(detail=True, methods=["get"])
+    def restrictions(self, request, slug=None):
+        """Retorna restrições de venda de um produto específico."""
+        product = self.get_object()
+        restrictions = product.sales_restrictions.filter(is_active=True)
+        serializer = SalesRestrictionSerializer(restrictions, many=True)
+        return Response({"product_slug": slug, "restrictions": serializer.data})
 
 
 class ProductVariationViewSet(viewsets.ModelViewSet):
-    """CRUD de variações de produtos."""
+    """CRUD completo de variações de produtos."""
 
-    queryset = ProductVariation.objects.all()
+    queryset = ProductVariation.objects.select_related("product")
     serializer_class = ProductVariationSerializer
+    permission_classes = [IsAdminOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["product", "name"]
+    search_fields = ["product__name", "name", "value", "sku_suffix"]
+    ordering_fields = ["name", "value", "created_at"]
+    ordering = ["product", "name"]
 
     def get_queryset(self):
         """Filtra variações por produto se parametro fornecido."""
         queryset = super().get_queryset()
         product_id = self.request.query_params.get("product")
+        product_slug = self.request.query_params.get("product_slug")
         if product_id:
             queryset = queryset.filter(product_id=product_id)
+        if product_slug:
+            queryset = queryset.filter(product__slug=product_slug)
         return queryset
 
 
 class ProductDosageViewSet(viewsets.ModelViewSet):
-    """CRUD de dosagens de produtos."""
+    """CRUD completo de dosagens de produtos."""
 
-    queryset = ProductDosage.objects.all()
+    queryset = ProductDosage.objects.select_related("product")
     serializer_class = ProductDosageSerializer
+    permission_classes = [IsAdminOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["product", "unit", "is_default"]
+    search_fields = ["product__name", "strength", "unit"]
+    ordering_fields = ["strength", "created_at"]
+    ordering = ["product", "strength"]
 
     def get_queryset(self):
         """Filtra dosagens por produto se parametro fornecido."""
         queryset = super().get_queryset()
         product_id = self.request.query_params.get("product")
+        product_slug = self.request.query_params.get("product_slug")
         if product_id:
             queryset = queryset.filter(product_id=product_id)
+        if product_slug:
+            queryset = queryset.filter(product__slug=product_slug)
         return queryset
 
 
 class ProductPackageInsertViewSet(viewsets.ModelViewSet):
-    """CRUD de bulas/inserts de produtos."""
+    """CRUD completo de bulas/inserts de produtos."""
 
-    queryset = ProductPackageInsert.objects.all()
+    queryset = ProductPackageInsert.objects.select_related("product")
     serializer_class = ProductPackageInsertSerializer
+    permission_classes = [IsAdminOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["product", "language", "requires_prescription_note"]
+    search_fields = ["product__name", "title", "content"]
+    ordering_fields = ["language", "created_at"]
+    ordering = ["product", "language"]
 
     def get_queryset(self):
         """Filtra bulas por produto se parametro fornecido."""
         queryset = super().get_queryset()
         product_id = self.request.query_params.get("product")
+        product_slug = self.request.query_params.get("product_slug")
         if product_id:
             queryset = queryset.filter(product_id=product_id)
+        if product_slug:
+            queryset = queryset.filter(product__slug=product_slug)
         return queryset
 
 
 class SalesRestrictionViewSet(viewsets.ModelViewSet):
-    """CRUD de restrições de venda."""
+    """CRUD completo de restrições de venda."""
 
-    queryset = SalesRestriction.objects.filter(is_active=True)
+    queryset = SalesRestriction.objects.filter(is_active=True).select_related("product")
     serializer_class = SalesRestrictionSerializer
+    permission_classes = [IsAdminOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["product", "restriction_type", "is_active"]
+    search_fields = ["product__name", "description", "detail"]
+    ordering_fields = ["restriction_type", "created_at"]
+    ordering = ["product", "restriction_type"]
 
     def get_queryset(self):
         """Filtra restrições por produto se parametro fornecido."""
         queryset = super().get_queryset()
         product_id = self.request.query_params.get("product")
+        product_slug = self.request.query_params.get("product_slug")
         if product_id:
             queryset = queryset.filter(product_id=product_id)
+        if product_slug:
+            queryset = queryset.filter(product__slug=product_slug)
         return queryset
