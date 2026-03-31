@@ -42,3 +42,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField()
+
+
+class DetailMessageSerializer(serializers.Serializer):
+    detail = serializers.CharField()

@@ -1,0 +1,11 @@
+meta {
+  name: Products List Filtered
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/products/?search=dipirona&category_slug=analgesicos&ordering=price&page=1&page_size=10
+  body: none
+  auth: none
+}

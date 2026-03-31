@@ -17,6 +17,7 @@ Construir uma base de API robusta com foco em:
 - Django 5.x
 - Django REST Framework
 - Simple JWT
+- drf-spectacular (OpenAPI/Swagger)
 - SQLite no desenvolvimento local
 - PostgreSQL em producao (via `DATABASE_URL`)
 
@@ -74,6 +75,12 @@ python manage.py runserver
 Healthcheck:
 
 - `GET /health/`
+
+Documentacao da API:
+
+- `GET /api/schema/` (OpenAPI)
+- `GET /api/docs/swagger/` (Swagger UI)
+- `GET /api/docs/redoc/` (ReDoc)
 
 ## Qualidade e contribuicao
 
@@ -221,9 +228,9 @@ python manage.py createsuperuser
 
 ## Proximos passos sugeridos
 
-- documentar exemplos de request/response para cada endpoint
-- adicionar tabela de permissoes por perfil
-- incluir colecao de testes de API (Postman/Bruno) versionada
+- ampliar cobertura automatizada de RBAC para cenarios de escrita administrativa
+- adicionar exemplos OpenAPI por endpoint com respostas de erro
+- expandir cenarios de smoke para fluxos negativos de autenticacao
 
 ## Artefatos da Sprint 03
 
@@ -242,6 +249,21 @@ python manage.py createsuperuser
   - `01 - Auth > Token obtain pair` (preenche `access` e `refresh` automaticamente)
   - `02 - RBAC`
   - `03 - Catalogo`
+
+## Artefatos da Sprint 04
+
+- OpenAPI Schema: `/api/schema/`
+- Swagger UI: `/api/docs/swagger/`
+- ReDoc: `/api/docs/redoc/`
+- colecao Bruno versionada: `api-tests/bruno/ihealthbrasil-sprint04/`
+
+### Como usar a colecao Bruno
+
+1. abrir no Bruno a pasta `api-tests/bruno/ihealthbrasil-sprint04/`
+2. selecionar o ambiente `local`
+3. executar `auth/token-obtain-pair.bru`
+4. preencher variaveis `access` e `refresh` no ambiente
+5. executar requests de `rbac/` e `catalog/`
 
 ## Status por sprint
 

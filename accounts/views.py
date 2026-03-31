@@ -1,6 +1,7 @@
 from typing import Any
 
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -12,7 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .audit import log_auth_event
 from .models import AuthAuditEvent
 from .permissions import HasAnyProfile
-from .serializers import LogoutSerializer, RegisterSerializer, UserSerializer
+from .serializers import DetailMessageSerializer, LogoutSerializer, RegisterSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -65,7 +66,9 @@ class MeView(generics.RetrieveAPIView):
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = LogoutSerializer
 
+    @extend_schema(request=LogoutSerializer, responses={205: None, 400: DetailMessageSerializer})
     def post(self, request, *args, **kwargs):
         serializer = LogoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -97,7 +100,9 @@ class LogoutView(APIView):
 class AdminOnlyView(APIView):
     permission_classes = [IsAuthenticated, HasAnyProfile]
     allowed_profiles = ["ADMIN"]
+    serializer_class = DetailMessageSerializer
 
+    @extend_schema(responses={200: DetailMessageSerializer})
     def get(self, _request, *args, **kwargs):
         return Response({"detail": "Acesso permitido para ADMIN."})
 
@@ -105,6 +110,8 @@ class AdminOnlyView(APIView):
 class ProviderOrAdminView(APIView):
     permission_classes = [IsAuthenticated, HasAnyProfile]
     allowed_profiles = ["PROVIDER", "ADMIN"]
+    serializer_class = DetailMessageSerializer
 
+    @extend_schema(responses={200: DetailMessageSerializer})
     def get(self, _request, *args, **kwargs):
         return Response({"detail": "Acesso permitido para PROVIDER ou ADMIN."})

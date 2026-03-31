@@ -10,6 +10,14 @@ from products.models import Category, Product, ProductDosage, ProductPackageInse
 class ProductsAPITests(APITestCase):
     def setUp(self):
         user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="catalog_user",
+            email="catalog_user@example.com",
+            password="StrongPass@123",
+            profile=user_model.Profile.PATIENT,
+            is_staff=False,
+        )
+
         self.admin = user_model.objects.create_user(
             username="catalog_admin",
             email="catalog_admin@example.com",
@@ -146,3 +154,74 @@ class ProductsAPITests(APITestCase):
         restriction_response = self.client.get(f"/api/sales-restrictions/?product_slug={self.product.slug}")
         self.assertEqual(restriction_response.status_code, status.HTTP_200_OK)
         self.assertEqual(restriction_response.data["count"], 1)
+
+    def test_catalog_write_requires_admin_for_all_resources(self):
+        write_targets = [
+            ("/api/categories/", {"name": "Fitoterapia", "description": "Produtos naturais"}),
+            (
+                "/api/products/",
+                {
+                    "name": "Melatonina 3mg",
+                    "description": "Auxiliar no sono",
+                    "price": "49.90",
+                    "requires_prescription": False,
+                    "active_ingredient": "Melatonina",
+                    "controlled_substance_class": "",
+                    "min_age_required": 18,
+                    "max_age_allowed": 0,
+                    "stock": 20,
+                    "sku": "MEL-3MG",
+                    "category": self.category.id,
+                    "is_active": True,
+                },
+            ),
+            ("/api/variations/", {"name": "Concentracao", "value": "3mg", "sku_suffix": "3MG", "stock": 5}),
+            ("/api/dosages/", {"strength": "3", "unit": "mg", "is_default": True}),
+            (
+                "/api/package-inserts/",
+                {"language": "pt_BR", "title": "Bula Melatonina", "content": "Conteudo", "requires_prescription_note": False},
+            ),
+            (
+                "/api/sales-restrictions/",
+                {
+                    "restriction_type": "age_min",
+                    "description": "Somente maiores de 18",
+                    "detail": "Validacao por documento",
+                    "is_active": True,
+                },
+            ),
+        ]
+
+        for url, payload in write_targets:
+            anonymous_response = self.client.post(url, payload, format="json")
+            self.assertEqual(anonymous_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+            self.client.force_authenticate(user=self.user)
+            non_admin_response = self.client.post(url, payload, format="json")
+            self.assertEqual(non_admin_response.status_code, status.HTTP_403_FORBIDDEN)
+            self.client.force_authenticate(user=None)
+
+    def test_category_and_product_create_allowed_for_admin(self):
+        self.client.force_authenticate(user=self.admin)
+
+        category_payload = {"name": "Suplementos", "description": "Produtos de suporte nutricional"}
+        category_response = self.client.post("/api/categories/", category_payload, format="json")
+        self.assertEqual(category_response.status_code, status.HTTP_201_CREATED)
+
+        product_payload = {
+            "name": "Vitamina D 2000UI",
+            "description": "Suplementacao diaria",
+            "price": "39.90",
+            "requires_prescription": False,
+            "active_ingredient": "Colecalciferol",
+            "controlled_substance_class": "",
+            "min_age_required": 12,
+            "max_age_allowed": 0,
+            "stock": 80,
+            "sku": "VITD-2000",
+            "category": self.category.id,
+            "is_active": True,
+        }
+
+        product_response = self.client.post("/api/products/", product_payload, format="json")
+        self.assertEqual(product_response.status_code, status.HTTP_201_CREATED)
