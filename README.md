@@ -219,11 +219,17 @@ python manage.py createsuperuser
 - expansao de saude/regulatorio (dosagens, bulas, restricoes)
 - endpoints REST para recursos de catalogo
 
+### Sprint 03 (entregue)
+
+- documentacao de request/response dos endpoints principais
+- matriz de permissoes por perfil com base nas rules reais do backend
+- colecao versionada de testes de API para smoke e validacao funcional
+
 ## Proximos passos sugeridos
 
-- documentar exemplos de request/response para cada endpoint
-- adicionar tabela de permissoes por perfil
-- incluir colecao de testes de API (Postman/Bruno) versionada
+- evoluir para documentacao OpenAPI/Swagger com exemplos por endpoint
+- ampliar testes automatizados de permissao por perfil no catalogo
+- incluir colecao Bruno alem da colecao Postman para testes versionados
 
 ## Artefatos da Sprint 03
 
@@ -243,10 +249,3 @@ python manage.py createsuperuser
   - `02 - RBAC`
   - `03 - Catalogo`
 
-## Status por sprint
-
-### Sprint 03 (em andamento)
-
-- documentacao de request/response dos endpoints principais
-- matriz de permissoes por perfil com base nas rules reais do backend
-- colecao versionada de testes de API para smoke e validacao funcional
