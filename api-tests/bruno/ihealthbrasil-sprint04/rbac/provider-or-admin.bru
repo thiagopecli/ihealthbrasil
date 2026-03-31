@@ -1,0 +1,15 @@
+meta {
+  name: RBAC Provider Or Admin
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/auth/rbac/provider-or-admin/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{access}}
+}

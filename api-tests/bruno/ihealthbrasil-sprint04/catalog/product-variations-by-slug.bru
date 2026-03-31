@@ -1,0 +1,11 @@
+meta {
+  name: Product Variations By Slug
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/api/products/{{product_slug}}/variations/
+  body: none
+  auth: none
+}
