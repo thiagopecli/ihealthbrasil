@@ -5,13 +5,48 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .audit import log_auth_event
+from .models import AuthAuditEvent
 from .permissions import HasAnyProfile
 from .serializers import LogoutSerializer, RegisterSerializer, UserSerializer
 
 User = get_user_model()
+
+
+class AuditTokenObtainPairView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        username = request.data.get("username", "")
+        user = User.objects.filter(username=username).first()
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            log_auth_event(
+                request=request,
+                event_type=AuthAuditEvent.EventType.LOGIN,
+                status=AuthAuditEvent.Status.FAILED,
+                user=user,
+                username=username,
+                details={"reason": "invalid_credentials"},
+            )
+            raise
+
+        if user:
+            log_auth_event(
+                request=request,
+                event_type=AuthAuditEvent.EventType.LOGIN,
+                status=AuthAuditEvent.Status.SUCCESS,
+                user=user,
+            )
+
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -40,7 +75,21 @@ class LogoutView(APIView):
             refresh_token = RefreshToken(str(refresh_raw))
             refresh_token.blacklist()
         except TokenError:
+            log_auth_event(
+                request=request,
+                event_type=AuthAuditEvent.EventType.LOGOUT,
+                status=AuthAuditEvent.Status.FAILED,
+                user=request.user,
+                details={"reason": "invalid_or_expired_refresh"},
+            )
             return Response({"detail": "Refresh token invalido ou expirado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        log_auth_event(
+            request=request,
+            event_type=AuthAuditEvent.EventType.LOGOUT,
+            status=AuthAuditEvent.Status.SUCCESS,
+            user=request.user,
+        )
 
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
