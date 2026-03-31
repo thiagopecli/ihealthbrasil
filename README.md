@@ -224,3 +224,29 @@ python manage.py createsuperuser
 - documentar exemplos de request/response para cada endpoint
 - adicionar tabela de permissoes por perfil
 - incluir colecao de testes de API (Postman/Bruno) versionada
+
+## Artefatos da Sprint 03
+
+- referencia de endpoints (request/response): `docs/sprint-03-api-reference.md`
+- matriz de permissoes por perfil: `docs/sprint-03-rbac-matrix.md`
+- colecao de testes de API (Postman): `api-tests/postman/ihealthbrasil-sprint03.postman_collection.json`
+
+### Como usar a colecao Postman
+
+1. importar o arquivo da colecao no Postman
+2. ajustar variaveis da colecao:
+  - `base_url` (padrao local: `http://127.0.0.1:8000`)
+  - `username` e `password`
+  - `product_slug` para testar endpoints por slug
+3. executar na ordem:
+  - `01 - Auth > Token obtain pair` (preenche `access` e `refresh` automaticamente)
+  - `02 - RBAC`
+  - `03 - Catalogo`
+
+## Status por sprint
+
+### Sprint 03 (em andamento)
+
+- documentacao de request/response dos endpoints principais
+- matriz de permissoes por perfil com base nas rules reais do backend
+- colecao versionada de testes de API para smoke e validacao funcional
