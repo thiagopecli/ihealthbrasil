@@ -17,6 +17,7 @@ Construir uma base de API robusta com foco em:
 - Django 5.x
 - Django REST Framework
 - Simple JWT
+- drf-spectacular (OpenAPI/Swagger)
 - SQLite no desenvolvimento local
 - PostgreSQL em producao (via `DATABASE_URL`)
 
@@ -74,6 +75,12 @@ python manage.py runserver
 Healthcheck:
 
 - `GET /health/`
+
+Documentacao da API:
+
+- `GET /api/schema/` (OpenAPI)
+- `GET /api/docs/swagger/` (Swagger UI)
+- `GET /api/docs/redoc/` (ReDoc)
 
 ## Qualidade e contribuicao
 
