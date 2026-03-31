@@ -3,6 +3,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.models import AuthAuditEvent
+
 
 class AccountsAPITests(APITestCase):
     def setUp(self):
@@ -90,6 +92,47 @@ class AccountsAPITests(APITestCase):
         logout_response = self.client.post(logout_url, {"refresh": tokens["refresh"]}, format="json")
 
         self.assertEqual(logout_response.status_code, status.HTTP_205_RESET_CONTENT)
+        self.assertTrue(
+            AuthAuditEvent.objects.filter(
+                user=self.patient_user,
+                event_type=AuthAuditEvent.EventType.LOGOUT,
+                status=AuthAuditEvent.Status.SUCCESS,
+            ).exists()
+        )
+
+    def test_login_creates_audit_event_without_tokens(self):
+        url = reverse("token_obtain_pair")
+
+        response = self.client.post(url, {"username": "patient_user", "password": self.password}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        event = AuthAuditEvent.objects.filter(
+            user=self.patient_user,
+            event_type=AuthAuditEvent.EventType.LOGIN,
+            status=AuthAuditEvent.Status.SUCCESS,
+        ).first()
+
+        self.assertIsNotNone(event)
+        self.assertNotIn("refresh", event.details)
+        self.assertNotIn("access", event.details)
+        self.assertNotIn("token", event.details)
+
+    def test_failed_login_creates_failed_audit_event_without_password(self):
+        url = reverse("token_obtain_pair")
+
+        response = self.client.post(url, {"username": "patient_user", "password": "senha_errada"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        event = AuthAuditEvent.objects.filter(
+            event_type=AuthAuditEvent.EventType.LOGIN,
+            status=AuthAuditEvent.Status.FAILED,
+        ).first()
+
+        self.assertIsNotNone(event)
+        self.assertEqual(event.details.get("reason"), "invalid_credentials")
+        self.assertNotIn("password", event.details)
 
     def test_rbac_admin_only(self):
         url = reverse("rbac_admin_only")

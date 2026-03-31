@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import User
+from .models import AuthAuditEvent, User
 
 
 @admin.register(User)
@@ -18,3 +18,34 @@ class CustomUserAdmin(UserAdmin):
         "is_active",
     )
     list_filter = UserAdmin.list_filter + ("profile",)
+
+
+@admin.register(AuthAuditEvent)
+class AuthAuditEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at",
+        "event_type",
+        "status",
+        "username_snapshot",
+        "profile_snapshot",
+        "ip_address",
+    )
+    list_filter = ("event_type", "status", "profile_snapshot", "created_at")
+    search_fields = ("username_snapshot", "user__username", "ip_address")
+    readonly_fields = (
+        "user",
+        "username_snapshot",
+        "profile_snapshot",
+        "event_type",
+        "status",
+        "ip_address",
+        "user_agent",
+        "details",
+        "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
