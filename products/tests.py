@@ -189,7 +189,12 @@ class ProductsAPITests(APITestCase):
             ("/api/dosages/", {"strength": "3", "unit": "mg", "is_default": True}),
             (
                 "/api/package-inserts/",
-                {"language": "pt_BR", "title": "Bula Melatonina", "content": "Conteudo", "requires_prescription_note": False},
+                {
+                    "language": "pt_BR",
+                    "title": "Bula Melatonina",
+                    "content": "Conteudo",
+                    "requires_prescription_note": False,
+                },
             ),
             (
                 "/api/sales-restrictions/",
@@ -271,9 +276,7 @@ class OrderAPITests(APITestCase):
     def test_patient_can_list_own_orders_only(self):
         """Paciente vê apenas seus pedidos."""
         Order.objects.create(user=self.patient, total_price=Decimal("100.00"))
-        Order.objects.create(
-            user=self.admin, total_price=Decimal("200.00")
-        )  # Pedido de outro usuário
+        Order.objects.create(user=self.admin, total_price=Decimal("200.00"))  # Pedido de outro usuário
 
         self.client.force_authenticate(user=self.patient)
         response = self.client.get("/api/orders/")

@@ -10,12 +10,9 @@ from products.models import MedicalPrescription, PrescriptionAccessAudit
 def _sanitize_payload(value: Any) -> Any:
     """Recursivamente sanitiza payloads, removendo dados sensíveis."""
     SENSITIVE_KEYS = {"password", "token", "refresh", "authorization", "secret", "api_key", "cpf", "medical_record"}
-    
+
     if isinstance(value, dict):
-        return {
-            k: "[REDACTED]" if str(k).lower() in SENSITIVE_KEYS else _sanitize_payload(v)
-            for k, v in value.items()
-        }
+        return {k: "[REDACTED]" if str(k).lower() in SENSITIVE_KEYS else _sanitize_payload(v) for k, v in value.items()}
     elif isinstance(value, list):
         return [_sanitize_payload(item) for item in value]
     elif isinstance(value, str) and len(value) > 1000:

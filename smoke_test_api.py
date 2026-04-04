@@ -109,7 +109,9 @@ def main():
     add_result("GET /api/products/ com query params", response.status_code == 200, f"status={response.status_code}")
 
     response = client.get("/api/products/requires_prescription/")
-    add_result("GET /api/products/requires_prescription/", response.status_code == 200, f"status={response.status_code}")
+    add_result(
+        "GET /api/products/requires_prescription/", response.status_code == 200, f"status={response.status_code}"
+    )
 
     response = client.get("/api/auth/me/")
     add_result("GET /api/auth/me/ autenticado", response.status_code == 200, f"status={response.status_code}")
