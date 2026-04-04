@@ -23,7 +23,6 @@ class ProductsAPITests(APITestCase):
         self.user = user_model.objects.create_user(
             username="catalog_user",
             email="catalog_user@example.com",
-            password="StrongPass@123",
             profile=user_model.Profile.PATIENT,
             is_staff=False,
         )
@@ -31,7 +30,6 @@ class ProductsAPITests(APITestCase):
         self.admin = user_model.objects.create_user(
             username="catalog_admin",
             email="catalog_admin@example.com",
-            password="StrongPass@123",
             profile=user_model.Profile.ADMIN,
             is_staff=True,
         )
@@ -250,14 +248,12 @@ class OrderAPITests(APITestCase):
         self.patient = user_model.objects.create_user(
             username="patient_user",
             email="patient@example.com",
-            password="StrongPass@123",
             profile=user_model.Profile.PATIENT,
         )
 
         self.admin = user_model.objects.create_user(
             username="order_admin",
             email="admin@example.com",
-            password="StrongPass@123",
             profile=user_model.Profile.ADMIN,
             is_staff=True,
         )
@@ -312,14 +308,12 @@ class MedicalPrescriptionAPITests(APITestCase):
         self.patient = user_model.objects.create_user(
             username="rx_patient",
             email="patient_rx@example.com",
-            password="StrongPass@123",
             profile=user_model.Profile.PATIENT,
         )
 
         self.admin = user_model.objects.create_user(
             username="rx_admin",
             email="admin_rx@example.com",
-            password="StrongPass@123",
             profile=user_model.Profile.ADMIN,
             is_staff=True,
         )
