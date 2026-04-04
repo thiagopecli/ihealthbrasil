@@ -1,6 +1,5 @@
 from rest_framework import serializers
 
-from accounts.models import User
 from products.models import (
     Category,
     MedicalPrescription,

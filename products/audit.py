@@ -1,6 +1,5 @@
 """Utilitários para auditoria de acesso a receitas médicas (LGPD)."""
 
-import json
 from typing import Any
 
 from accounts.models import User as DjangoUser

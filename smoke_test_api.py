@@ -5,10 +5,6 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
-
 RESULTS = []
 
 
@@ -17,6 +13,8 @@ def add_result(name, ok, detail):
 
 
 def ensure_admin_user():
+    from django.contrib.auth import get_user_model
+
     user_model = get_user_model()
     password = "SmokeTest@123"
     username_field = user_model.USERNAME_FIELD
@@ -52,6 +50,9 @@ def ensure_admin_user():
 
 
 def main():
+    from django.conf import settings
+    from rest_framework.test import APIClient
+
     if "testserver" not in settings.ALLOWED_HOSTS:
         settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS) + ["testserver"]
 

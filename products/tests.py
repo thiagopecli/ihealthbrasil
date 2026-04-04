@@ -412,7 +412,7 @@ class MedicalPrescriptionAPITests(APITestCase):
 
     def test_prescription_access_logs_endpoint_admin_only(self):
         """Endpoint de auditoria de receita é apenas para admin."""
-        prescription = MedicalPrescription.objects.create(
+        MedicalPrescription.objects.create(
             order=self.order,
             prescription_type="DIGITAL_PHOTO",
             status=MedicalPrescription.Status.VERIFIED,

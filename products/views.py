@@ -272,10 +272,6 @@ class SalesRestrictionViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import never_cache
-
-
 class OrderViewSet(viewsets.ModelViewSet):
     """CRUD e gestão de pedidos (compras)."""
 
