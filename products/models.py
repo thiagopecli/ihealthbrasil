@@ -213,3 +213,220 @@ class SalesRestriction(models.Model):
 
     def __str__(self) -> str:
         return f"{self.product.name} - {self.get_restriction_type_display()}"
+
+
+class Order(models.Model):
+    """Pedido de compra no marketplace."""
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Aguardando pagamento"
+        PAID = "PAID", "Pago"
+        UNDER_MEDICAL_REVIEW = "UNDER_MEDICAL_REVIEW", "Em análise médica"
+        APPROVED = "APPROVED", "Aprovado"
+        CANCELLED = "CANCELLED", "Cancelado"
+        FAILED = "FAILED", "Falha no pagamento"
+
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="orders",
+    )
+    status = models.CharField(
+        max_length=50,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    shipping_address = models.TextField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Pedido"
+        verbose_name_plural = "Pedidos"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Pedido #{self.id} - {self.user.username} ({self.get_status_display()})"
+
+
+class OrderItem(models.Model):
+    """Item individual em um pedido."""
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
+    product_variation = models.ForeignKey(
+        ProductVariation, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Item do Pedido"
+        verbose_name_plural = "Itens do Pedido"
+        ordering = ["order", "created_at"]
+        indexes = [
+            models.Index(fields=["order"]),
+            models.Index(fields=["product"]),
+        ]
+
+    def __str__(self) -> str:
+        product_name = self.product.name if self.product else "Produto removido"
+        return f"{product_name} x{self.quantity} (Pedido #{self.order.id})"
+
+
+class MedicalPrescription(models.Model):
+    """Receita médica vinculada a um pedido para produtos controlados."""
+
+    class Type(models.TextChoices):
+        ELECTRONIC = "ELECTRONIC", "Eletrônica"
+        PRINTED = "PRINTED", "Impressa"
+        DIGITAL_PHOTO = "DIGITAL_PHOTO", "Foto Digital"
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Aguardando upload"
+        SUBMITTED = "SUBMITTED", "Enviada"
+        VERIFIED = "VERIFIED", "Verificada"
+        REJECTED = "REJECTED", "Rejeitada"
+        EXPIRED = "EXPIRED", "Expirada"
+
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="prescription",
+        help_text="Receita vinculada a este pedido",
+    )
+    prescription_type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        default=Type.DIGITAL_PHOTO,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    file = models.FileField(
+        upload_to="prescriptions/%Y/%m/%d/",
+        help_text="Arquivo da receita médica",
+    )
+    file_size = models.BigIntegerField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="Tamanho do arquivo em bytes",
+    )
+    file_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        editable=False,
+        db_index=True,
+        help_text="SHA-256 do arquivo para integridade",
+    )
+
+    prescriber_name = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Nome do médico/profissional que prescreveu",
+    )
+    prescription_date = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Data de emissão da receita",
+    )
+    validity_days = models.IntegerField(
+        default=30,
+        help_text="Quantos dias a receita é válida",
+    )
+    expires_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Data/hora de expiração automática",
+        db_index=True,
+    )
+
+    verification_notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Notas do verificador (admin/staff)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Receita Médica"
+        verbose_name_plural = "Receitas Médicas"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["order", "status"]),
+            models.Index(fields=["status", "expires_at"]),
+            models.Index(fields=["file_hash"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Receita (Pedido #{self.order.id}) - {self.get_status_display()}"
+
+
+class PrescriptionAccessAudit(models.Model):
+    """Auditoria de acesso a receitas médicas para compliance LGPD."""
+
+    class Action(models.TextChoices):
+        UPLOADED = "UPLOADED", "Arquivo enviado"
+        DOWNLOADED = "DOWNLOADED", "Arquivo baixado"
+        VIEWED = "VIEWED", "Visualizado"
+        VERIFIED = "VERIFIED", "Verificado (admin)"
+        REJECTED = "REJECTED", "Rejeitado (admin)"
+
+    prescription = models.ForeignKey(
+        MedicalPrescription,
+        on_delete=models.CASCADE,
+        related_name="access_logs",
+    )
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="prescription_access_logs",
+    )
+    username_snapshot = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Snapshot do username (caso usuário seja deletado)",
+    )
+    action = models.CharField(max_length=20, choices=Action.choices, db_index=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    details = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Detalhes customizados (acesso via API/Admin, localização, etc)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "Auditoria de Acesso a Receita"
+        verbose_name_plural = "Auditorias de Acesso a Receitas"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["prescription", "action", "created_at"]),
+            models.Index(fields=["user", "action", "created_at"]),
+            models.Index(fields=["action", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        username = self.username_snapshot or (self.user.username if self.user else "anonimo")
+        return f"{self.get_action_display()} - Receita #{self.prescription.id} por {username}"
