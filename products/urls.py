@@ -5,11 +5,11 @@ from products.views import (
     CategoryViewSet,
     MedicalPrescriptionViewSet,
     OrderViewSet,
+    PrescriptionAccessAuditViewSet,
     ProductDosageViewSet,
     ProductPackageInsertViewSet,
     ProductVariationViewSet,
     ProductViewSet,
-    PrescriptionAccessAuditViewSet,
     SalesRestrictionViewSet,
 )
 

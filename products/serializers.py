@@ -4,6 +4,7 @@ from accounts.models import User
 from products.models import (
     Category,
     MedicalPrescription,
+    Order,
     OrderItem,
     PrescriptionAccessAudit,
     Product,
@@ -11,7 +12,6 @@ from products.models import (
     ProductPackageInsert,
     ProductVariation,
     SalesRestriction,
-    Order,
 )
 
 

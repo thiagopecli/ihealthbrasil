@@ -8,11 +8,11 @@ from products.models import (
     Category,
     MedicalPrescription,
     Order,
+    PrescriptionAccessAudit,
     Product,
     ProductDosage,
     ProductPackageInsert,
     ProductVariation,
-    PrescriptionAccessAudit,
     SalesRestriction,
 )
 
