@@ -277,23 +277,22 @@ Endpoint novo:
 
 - `GET/POST /api/product-prices/` (admin para escrita)
 
-### Sprint 04 (parcial)
+### Sprint 04 (entregue)
 
 - modelos `Order` e `OrderItem` implementados
 - endpoints de pedidos com listagem e detalhe
+- carrinho persistente com `Cart` e `CartItem`
+- endpoints de carrinho: adicionar, atualizar, remover, limpar e consultar carrinho do usuario
+- checkout completo do carrinho para `Order` e `OrderItem` com recalculo consolidado
 - base de checkout para pagamento via `payment-intent`
-
-Pendente para fechar a sprint:
-
-- carrinho persistente (`Cart`)
-- endpoints de adicionar/remover/atualizar itens do carrinho
-- fechamento de carrinho para pedido com recálculo consolidado
 
 ### Sprint 05 (entregue)
 
 - fluxo de upload e auditoria de receitas medicas para produtos controlados
 - endpoint de aprovacao/rejeicao de receita por admin
 - trilha de auditoria LGPD para acesso a receitas
+- armazenamento privado de receitas fora de `/media` publico
+- URL assinada temporaria para download seguro de receita
 
 ### Sprint 06 (entregue)
 
@@ -340,9 +339,7 @@ Endpoint novo:
 
 ## Proximos passos sugeridos (foco producao)
 
-- implementar carrinho persistente e fluxo completo de checkout
 - concluir i18n na API e precificacao multimoeda
-- mover receitas para storage privado com URL assinada temporaria
 - adicionar expiracao automatica de receitas via tarefa agendada
 - elevar observabilidade com `correlation_id`, metricas e alertas
 - expandir testes de integracao para fluxos criticos (checkout, webhook, prescricao)

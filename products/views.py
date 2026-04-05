@@ -1,11 +1,15 @@
 import hashlib
 import hmac
+import os
 from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core import signing
 from django.db import transaction
 from django.db.models import Count, Prefetch, Sum
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
@@ -67,7 +71,12 @@ from products.serializers import (
     SalesRestrictionSerializer,
 )
 from products.tasks import enqueue_order_status_sms
-from products.utils import get_localized_message, package_insert_language_candidates
+from products.utils import (
+    build_prescription_download_token,
+    get_localized_message,
+    package_insert_language_candidates,
+    parse_prescription_download_token,
+)
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -946,24 +955,66 @@ class MedicalPrescriptionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Log de auditoria de download
-        log_prescription_access(
-            request=request,
-            prescription=prescription,
-            action=PrescriptionAccessAudit.Action.DOWNLOADED,
-            details={"file_format": "original"},
+        token = build_prescription_download_token(
+            prescription_id=prescription.id,
+            requested_by_user_id=request.user.id,
+            file_hash=prescription.file_hash or "",
         )
+        signed_download_url = request.build_absolute_uri(f"/api/prescriptions/secure-download/?token={token}")
 
-        # Retorna URL/stream do arquivo (simplificado para arquivo local)
+        ttl_seconds = int(getattr(settings, "PRESCRIPTION_SIGNED_URL_TTL_SECONDS", 300))
         return Response(
             {
-                "download_url": request.build_absolute_uri(prescription.file.url),
+                "download_url": signed_download_url,
+                "expires_in_seconds": ttl_seconds,
                 "file_name": prescription.file.name,
                 "file_size": prescription.file_size,
                 "file_hash": prescription.file_hash,
             },
             status=status.HTTP_200_OK,
         )
+
+    @action(detail=False, methods=["get"], url_path="secure-download", permission_classes=[AllowAny])
+    def secure_download(self, request):
+        """
+        Download real do arquivo de receita via token assinado com expiração.
+        GET /prescriptions/secure-download/?token=...
+        """
+        token = request.query_params.get("token", "")
+        if not token:
+            return Response({"detail": "Token ausente."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            payload = parse_prescription_download_token(token)
+        except signing.SignatureExpired:
+            return Response({"detail": "Token expirado."}, status=status.HTTP_403_FORBIDDEN)
+        except signing.BadSignature:
+            return Response({"detail": "Token inválido ou expirado."}, status=status.HTTP_403_FORBIDDEN)
+
+        prescription = get_object_or_404(MedicalPrescription.objects.select_related("order", "order__user"), id=payload["pid"])
+
+        expected_hash = payload.get("fh", "")
+        if expected_hash and expected_hash != (prescription.file_hash or ""):
+            return Response({"detail": "Token inválido para o arquivo atual."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            file_handle = prescription.file.open("rb")
+        except FileNotFoundError:
+            return Response({"detail": "Arquivo de receita não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        log_prescription_access(
+            request=request,
+            prescription=prescription,
+            action=PrescriptionAccessAudit.Action.DOWNLOADED,
+            details={
+                "file_format": "original",
+                "signed_url": True,
+                "requested_by_user_id": payload.get("uid"),
+            },
+        )
+
+        file_name = os.path.basename(prescription.file.name)
+        return FileResponse(file_handle, as_attachment=True, filename=file_name)
 
     @action(detail=True, methods=["get"])
     def access_logs(self, request, pk=None):
