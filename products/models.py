@@ -1,4 +1,8 @@
+from decimal import ROUND_HALF_UP, Decimal
+
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 from django.utils.text import slugify
 
 
@@ -231,6 +235,14 @@ class Order(models.Model):
         on_delete=models.CASCADE,
         related_name="orders",
     )
+    provider = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        related_name="provider_orders",
+        null=True,
+        blank=True,
+        help_text="Fornecedor parceiro responsável pelo pedido",
+    )
     status = models.CharField(
         max_length=50,
         choices=Status.choices,
@@ -238,6 +250,20 @@ class Order(models.Model):
         db_index=True,
     )
     total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    commission_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("12.00"),
+        validators=[MinValueValidator(Decimal("0.00")), MaxValueValidator(Decimal("100.00"))],
+        help_text="Percentual de comissão da iHealth aplicado no split",
+    )
+    gateway_reference = models.CharField(
+        max_length=120,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Referência do pedido no gateway de pagamento",
+    )
     shipping_address = models.TextField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -251,10 +277,21 @@ class Order(models.Model):
             models.Index(fields=["user", "status"]),
             models.Index(fields=["status", "created_at"]),
             models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["provider", "created_at"]),
+            models.Index(fields=["gateway_reference"]),
         ]
 
     def __str__(self) -> str:
         return f"Pedido #{self.id} - {self.user.username} ({self.get_status_display()})"
+
+    def calculate_split_values(self) -> tuple[Decimal, Decimal]:
+        """Calcula valores de split: fornecedor e comissão da iHealth."""
+        gross_amount = (self.total_price or Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        commission_value = (gross_amount * self.commission_rate / Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        provider_value = (gross_amount - commission_value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return provider_value, commission_value
 
 
 class OrderItem(models.Model):
@@ -281,6 +318,118 @@ class OrderItem(models.Model):
     def __str__(self) -> str:
         product_name = self.product.name if self.product else "Produto removido"
         return f"{product_name} x{self.quantity} (Pedido #{self.order.id})"
+
+
+class PaymentTransaction(models.Model):
+    """Transação financeira de um pedido com suporte a split."""
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pendente"
+        APPROVED = "APPROVED", "Aprovado"
+        EXPIRED = "EXPIRED", "Vencido"
+        FAILED = "FAILED", "Falhou"
+        REFUNDED = "REFUNDED", "Estornado"
+
+    class Method(models.TextChoices):
+        PIX = "PIX", "Pix"
+        BOLETO = "BOLETO", "Boleto"
+        CREDIT_CARD = "CREDIT_CARD", "Cartão de crédito"
+        DEBIT_CARD = "DEBIT_CARD", "Cartão de débito"
+        UNKNOWN = "UNKNOWN", "Desconhecido"
+
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="payment")
+    gateway = models.CharField(max_length=50, default="sandbox_gateway")
+    gateway_transaction_id = models.CharField(max_length=120, unique=True, db_index=True)
+    gateway_status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    payment_method = models.CharField(max_length=20, choices=Method.choices, default=Method.UNKNOWN)
+    gross_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    provider_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    ihealth_commission_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    commission_rate_applied = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    is_split_calculated = models.BooleanField(default=False)
+    raw_last_payload = models.JSONField(default=dict, blank=True)
+    paid_at = models.DateTimeField(blank=True, null=True)
+    last_event_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Transação de Pagamento"
+        verbose_name_plural = "Transações de Pagamento"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["gateway_status", "last_event_at"]),
+            models.Index(fields=["gateway", "gateway_transaction_id"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Pagamento Pedido #{self.order_id} ({self.get_gateway_status_display()})"
+
+    def apply_split(self) -> None:
+        """Calcula e persiste valores de split com base no pedido."""
+        provider_value, commission_value = self.order.calculate_split_values()
+        self.gross_amount = self.order.total_price
+        self.provider_amount = provider_value
+        self.ihealth_commission_amount = commission_value
+        self.commission_rate_applied = self.order.commission_rate
+        self.is_split_calculated = True
+
+    def apply_gateway_event(self, event_name: str, payload: dict, event_at=None) -> None:
+        """Aplica evento do gateway na transação e no pedido de forma determinística."""
+        normalized_event = (event_name or "").strip().lower()
+        self.raw_last_payload = payload
+        self.last_event_at = event_at or timezone.now()
+
+        approved_events = {"payment.approved", "pagamento_aprovado", "pagamento.aprovado"}
+        expired_events = {"boleto.expired", "boleto_vencido", "boleto.vencido"}
+        failed_events = {"payment.failed", "pagamento_falhou", "pagamento.recusado"}
+        refunded_events = {"payment.refunded", "pagamento_estornado"}
+
+        if normalized_event in approved_events:
+            self.gateway_status = self.Status.APPROVED
+            self.paid_at = event_at or timezone.now()
+            has_pending_prescription = hasattr(self.order, "prescription") and (
+                self.order.prescription.status != MedicalPrescription.Status.VERIFIED
+            )
+            if has_pending_prescription:
+                self.order.status = Order.Status.UNDER_MEDICAL_REVIEW
+            else:
+                self.order.status = Order.Status.PAID
+        elif normalized_event in expired_events:
+            self.gateway_status = self.Status.EXPIRED
+            self.order.status = Order.Status.CANCELLED
+        elif normalized_event in failed_events:
+            self.gateway_status = self.Status.FAILED
+            self.order.status = Order.Status.FAILED
+        elif normalized_event in refunded_events:
+            self.gateway_status = self.Status.REFUNDED
+            self.order.status = Order.Status.CANCELLED
+
+
+class PaymentWebhookEvent(models.Model):
+    """Evento recebido do gateway para garantir idempotência de processamento."""
+
+    payment = models.ForeignKey(PaymentTransaction, on_delete=models.CASCADE, related_name="webhook_events")
+    event_id = models.CharField(max_length=120, unique=True, db_index=True)
+    event_name = models.CharField(max_length=100, db_index=True)
+    payload = models.JSONField(default=dict, blank=True)
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Evento de Webhook de Pagamento"
+        verbose_name_plural = "Eventos de Webhook de Pagamento"
+        ordering = ["-processed_at"]
+        indexes = [
+            models.Index(fields=["event_name", "processed_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Webhook {self.event_name} ({self.event_id})"
 
 
 class MedicalPrescription(models.Model):

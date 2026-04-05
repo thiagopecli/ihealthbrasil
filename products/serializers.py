@@ -6,6 +6,7 @@ from products.models import (
     Order,
     OrderItem,
     PaymentIntent,
+    PaymentTransaction,
     PrescriptionAccessAudit,
     Product,
     ProductDosage,
@@ -196,18 +197,47 @@ class OrderItemSerializer(serializers.ModelSerializer):
         read_only_fields = ["order", "unit_price", "total_price", "created_at", "updated_at"]
 
 
+class PaymentTransactionSerializer(serializers.ModelSerializer):
+    """Serializer de transação de pagamento com split calculado."""
+
+    class Meta:
+        model = PaymentTransaction
+        fields = [
+            "id",
+            "gateway",
+            "gateway_transaction_id",
+            "gateway_status",
+            "payment_method",
+            "gross_amount",
+            "provider_amount",
+            "ihealth_commission_amount",
+            "commission_rate_applied",
+            "is_split_calculated",
+            "paid_at",
+            "last_event_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
 class OrderListSerializer(serializers.ModelSerializer):
     """Serializer para listar pedidos (resumo)."""
 
     user = serializers.StringRelatedField(read_only=True)
+    payment = PaymentTransactionSerializer(read_only=True)
 
     class Meta:
         model = Order
         fields = [
             "id",
             "user",
+            "provider",
             "status",
             "total_price",
+            "commission_rate",
+            "gateway_reference",
+            "payment",
             "created_at",
             "updated_at",
         ]
@@ -219,15 +249,20 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
     items = OrderItemSerializer(many=True, read_only=True)
     user = serializers.StringRelatedField(read_only=True)
+    payment = PaymentTransactionSerializer(read_only=True)
 
     class Meta:
         model = Order
         fields = [
             "id",
             "user",
+            "provider",
             "status",
             "items",
             "total_price",
+            "commission_rate",
+            "gateway_reference",
+            "payment",
             "shipping_address",
             "notes",
             "created_at",

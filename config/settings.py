@@ -139,6 +139,12 @@ SIMPLE_JWT = {
     "SIGNING_KEY": JWT_SIGNING_KEY,
 }
 
+PAYMENT_WEBHOOK_SECRET = os.getenv("PAYMENT_WEBHOOK_SECRET", "dev-webhook-secret-change-me")
+PAYMENT_DEFAULT_COMMISSION_RATE = os.getenv("PAYMENT_DEFAULT_COMMISSION_RATE", "12.00")
+
+if ENVIRONMENT == "production" and PAYMENT_WEBHOOK_SECRET == "dev-webhook-secret-change-me":
+    raise ImproperlyConfigured("PAYMENT_WEBHOOK_SECRET precisa ser definido em producao.")
+
 # Pagamentos (Sprint 6)
 PAYMENT_GATEWAY_PROVIDER = os.getenv("PAYMENT_GATEWAY_PROVIDER", "mock").lower()
 PAYMENT_DEFAULT_CURRENCY = os.getenv("PAYMENT_DEFAULT_CURRENCY", "brl").lower()
