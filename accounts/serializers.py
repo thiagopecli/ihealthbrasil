@@ -9,7 +9,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("username", "email", "password", "first_name", "last_name", "profile")
+        fields = ("username", "email", "password", "first_name", "last_name", "profile", "phone_number")
 
     def validate_profile(self, value):
         if value == User.Profile.ADMIN:
@@ -34,6 +34,7 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "profile",
+            "phone_number",
             "is_active",
             "date_joined",
         )

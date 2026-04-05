@@ -19,6 +19,7 @@ Construir uma base de API robusta com foco em:
 - Simple JWT
 - drf-spectacular (OpenAPI/Swagger)
 - Stripe SDK (integração de pagamentos)
+- Celery + Redis (tarefas assíncronas)
 - SQLite no desenvolvimento local
 - PostgreSQL em producao (via `DATABASE_URL`)
 
@@ -71,6 +72,12 @@ Copy-Item .env.example .env
 ```bash
 python manage.py migrate
 python manage.py runserver
+```
+
+Para processar tarefas assincronas (Sprint 8), execute tambem o worker Celery em outro terminal:
+
+```bash
+celery -A config worker -l info
 ```
 
 Healthcheck:
@@ -256,6 +263,23 @@ Endpoint novo de checkout/pagamento:
 
 - `POST /api/orders/{id}/payment-intent/`
   - payload opcional: `provider_user_id`, `currency`
+
+### Sprint 07 (entregue)
+
+- webhook de pagamento com validacao de assinatura
+- processamento idempotente de eventos do gateway
+- atualizacao automatica de status do pedido
+
+Endpoint novo:
+
+- `POST /api/payments/webhooks/gateway/`
+
+### Sprint 08 (entregue)
+
+- integracao de SMS por provider configuravel (`mock` e `twilio`)
+- disparo assíncrono de notificacao por mudanca de status do pedido
+- fallback seguro para execucao local quando broker estiver indisponivel
+- auditoria de notificacoes externas em `ExternalNotification`
 
 ## Proximos passos sugeridos
 

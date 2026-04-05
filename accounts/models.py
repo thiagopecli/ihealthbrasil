@@ -15,6 +15,7 @@ class User(AbstractUser):
         default=Profile.PATIENT,
         db_index=True,
     )
+    phone_number = models.CharField(max_length=20, blank=True, null=True, db_index=True)
 
     @property
     def is_patient(self) -> bool:

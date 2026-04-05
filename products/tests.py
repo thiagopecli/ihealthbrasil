@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import override_settings
@@ -501,7 +502,7 @@ class OrderPaymentIntentAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-@override_settings(PAYMENT_WEBHOOK_SECRET=WEBHOOK_TEST_SECRET)  # nosec B106
+@override_settings(PAYMENT_WEBHOOK_SECRET=WEBHOOK_TEST_SECRET, CELERY_TASK_ALWAYS_EAGER=True)  # nosec B106
 class PaymentWebhookAPITests(APITestCase):
     """Testes para split de pagamento e webhook de atualização de status."""
 
@@ -534,7 +535,8 @@ class PaymentWebhookAPITests(APITestCase):
         signature = hmac.new(secret.encode("utf-8"), raw_payload.encode("utf-8"), hashlib.sha256).hexdigest()
         return raw_payload, signature
 
-    def test_webhook_pagamento_aprovado_calcula_split_e_muda_pedido_para_pago(self):
+    @patch("products.views.enqueue_order_status_sms")
+    def test_webhook_pagamento_aprovado_calcula_split_e_muda_pedido_para_pago(self, mock_enqueue):
         payload = {
             "event_id": "evt-approved-1",
             "event": "payment.approved",
@@ -566,6 +568,11 @@ class PaymentWebhookAPITests(APITestCase):
         self.assertEqual(payment.provider_amount, Decimal("85.00"))
         self.assertEqual(payment.ihealth_commission_amount, Decimal("15.00"))
         self.assertTrue(payment.is_split_calculated)
+        mock_enqueue.assert_called_once_with(
+            order_id=self.order.id,
+            event_name="payment.approved",
+            status_value=Order.Status.PAID,
+        )
 
     def test_webhook_boleto_vencido_cancela_pedido(self):
         payload = {
@@ -591,7 +598,8 @@ class PaymentWebhookAPITests(APITestCase):
         self.assertEqual(self.order.status, Order.Status.CANCELLED)
         self.assertEqual(self.order.payment.gateway_status, "EXPIRED")
 
-    def test_webhook_evento_duplicado_e_idempotente(self):
+    @patch("products.views.enqueue_order_status_sms")
+    def test_webhook_evento_duplicado_e_idempotente(self, mock_enqueue):
         payload = {
             "event_id": "evt-duplicate-1",
             "event": "payment.approved",
@@ -620,6 +628,7 @@ class PaymentWebhookAPITests(APITestCase):
         self.assertEqual(second_response.status_code, status.HTTP_200_OK)
         self.assertFalse(second_response.data["processed"])
         self.assertTrue(second_response.data["duplicate"])
+        mock_enqueue.assert_called_once()
 
     def test_webhook_assinatura_invalida_retorna_401(self):
         payload = {

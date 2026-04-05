@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from products.models import Category, Product, ProductDosage, ProductPackageInsert, ProductVariation, SalesRestriction
+from products.models import (
+    Category,
+    ExternalNotification,
+    Product,
+    ProductDosage,
+    ProductPackageInsert,
+    ProductVariation,
+    SalesRestriction,
+)
 
 
 class ProductVariationInline(admin.TabularInline):
@@ -167,3 +175,22 @@ class SalesRestrictionAdmin(admin.ModelAdmin):
     search_fields = ["product__name", "description", "detail"]
     readonly_fields = ["created_at", "updated_at"]
     ordering = ["product", "restriction_type"]
+
+
+@admin.register(ExternalNotification)
+class ExternalNotificationAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "order",
+        "channel",
+        "provider",
+        "event_name",
+        "destination_masked",
+        "status",
+        "sent_at",
+        "created_at",
+    ]
+    list_filter = ["channel", "provider", "status", "event_name", "created_at"]
+    search_fields = ["order__id", "event_name", "destination_masked", "external_message_id"]
+    readonly_fields = ["created_at", "updated_at", "sent_at"]
+    ordering = ["-created_at"]

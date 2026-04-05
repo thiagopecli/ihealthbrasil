@@ -50,6 +50,7 @@ from products.serializers import (
     ProductVariationSerializer,
     SalesRestrictionSerializer,
 )
+from products.tasks import enqueue_order_status_sms
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -702,9 +703,17 @@ class PaymentGatewayWebhookAPIView(APIView):
             )
 
         payment.payment_method = self._normalize_payment_method(data.get("payment_method"))
+        previous_order_status = payment.order.status
         payment.apply_gateway_event(event_name=event_name, payload=payload)
         payment.save()
         payment.order.save(update_fields=["status", "updated_at"])
+
+        if previous_order_status != payment.order.status:
+            enqueue_order_status_sms(
+                order_id=payment.order_id,
+                event_name=event_name,
+                status_value=payment.order.status,
+            )
 
         return Response(
             {

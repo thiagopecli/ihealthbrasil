@@ -691,3 +691,43 @@ class PaymentIntent(models.Model):
 
     def __str__(self) -> str:
         return f"Pedido #{self.order_id} - {self.gateway_payment_intent_id}"
+
+
+class ExternalNotification(models.Model):
+    """Registro auditavel de notificacoes externas disparadas por evento do pedido."""
+
+    class Channel(models.TextChoices):
+        SMS = "SMS", "SMS"
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pendente"
+        SENT = "SENT", "Enviado"
+        FAILED = "FAILED", "Falhou"
+        SKIPPED = "SKIPPED", "Ignorado"
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="external_notifications")
+    channel = models.CharField(max_length=20, choices=Channel.choices, default=Channel.SMS, db_index=True)
+    provider = models.CharField(max_length=50, default="mock", db_index=True)
+    event_name = models.CharField(max_length=80, db_index=True)
+    destination_masked = models.CharField(max_length=30, blank=True)
+    message = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    external_message_id = models.CharField(max_length=120, blank=True)
+    error_message = models.CharField(max_length=255, blank=True)
+    request_metadata = models.JSONField(default=dict, blank=True)
+    response_metadata = models.JSONField(default=dict, blank=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Notificacao Externa"
+        verbose_name_plural = "Notificacoes Externas"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["order", "channel", "created_at"]),
+            models.Index(fields=["event_name", "status", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.channel} pedido #{self.order_id} ({self.status})"
