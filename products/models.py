@@ -95,6 +95,40 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 
 
+class ProductPrice(models.Model):
+    """Preco de produto por pais/moeda para catalogo multimoeda."""
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="prices")
+    country_code = models.CharField(max_length=2, default="BR", db_index=True)
+    currency = models.CharField(max_length=3, default="BRL", db_index=True)
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Preco do Produto"
+        verbose_name_plural = "Precos dos Produtos"
+        ordering = ["product", "country_code", "currency"]
+        unique_together = [["product", "country_code", "currency"]]
+        indexes = [
+            models.Index(fields=["product", "country_code", "currency"]),
+            models.Index(fields=["country_code", "currency", "is_active"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.product.name} - {self.country_code}/{self.currency}: {self.amount}"
+
+    def save(self, *args, **kwargs) -> None:
+        self.country_code = (self.country_code or "BR").upper()
+        self.currency = (self.currency or "BRL").upper()
+        super().save(*args, **kwargs)
+
+
 class ProductVariation(models.Model):
     """Variação de um produto (tamanho, cor, concentração, etc)."""
 

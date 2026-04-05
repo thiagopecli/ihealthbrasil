@@ -36,7 +36,7 @@ O que ainda impede considerar o sistema pronto para producao total:
 | Sprint 0 | Concluida | 100% | CI, pre-commit, convencao de commits e base de qualidade | Proteger a main no GitHub |
 | Sprint 1 | Concluida | 100% | Auth JWT, RBAC, usuario customizado e auditoria de login/logout | Reset de senha e reforcos opcionais |
 | Sprint 2 | Concluida | 100% | Catalogo regulatorio, filtros e CRUD do backend | Imagem de produto e controle transacional de estoque |
-| Sprint 3 | Parcial | 35% | Base i18n e bulas multilíngues | i18n real na API e multimoeda |
+| Sprint 3 | Concluida | 100% | i18n por Accept-Language, bulas com fallback e multimoeda por pais/moeda | Nenhuma pendencia aberta |
 | Sprint 4 | Parcial | 45% | Order, OrderItem e detalhe de pedido | Carrinho persistente e checkout completo |
 | Sprint 5 | Concluida com gaps | 85% | Upload, auditoria e aprovacao/rejeicao de receitas | Storage privado e URL assinada temporaria |
 | Sprint 6 | Concluida | 95% | Gateway, customer, connected account e payment intent | Validacao operacional do gateway real |
@@ -106,20 +106,16 @@ Falta para producao:
 
 ### Sprint 3 - i18n e precificacao multimoeda
 
-Status: parcial.
+Status: concluida.
 
 Ja foi feito:
 
-- base de internacionalizacao do Django ligada com USE_I18N
-- bulas com idiomas pt_BR, en_US e es_ES
-
-Falta para producao:
-
-- i18n real na API com Accept-Language
-- traducao de mensagens principais da API
-- modelo de preco por moeda/pais
-- conversao de moeda por regra de negocio
-- resposta do catalogo variando idioma e moeda por cabecalho
+- i18n funcional na API com Accept-Language (LocaleMiddleware ativo)
+- bulas com selecao por idioma e fallback para pt_BR
+- traducao de mensagens principais de validacao para pt/en/es
+- modelo ProductPrice por produto/pais/moeda
+- catalogo retornando preco contextual por cabecalho/query params
+- endpoint para gestao de precos multimoeda: /api/product-prices/
 
 ### Sprint 4 - Carrinho e pedido
 

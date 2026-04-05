@@ -11,6 +11,7 @@ from products.views import (
     PrescriptionAccessAuditViewSet,
     ProductDosageViewSet,
     ProductPackageInsertViewSet,
+    ProductPriceViewSet,
     ProductVariationViewSet,
     ProductViewSet,
     SalesRestrictionViewSet,
@@ -22,6 +23,7 @@ router.register(r"products", ProductViewSet)
 router.register(r"variations", ProductVariationViewSet)
 router.register(r"dosages", ProductDosageViewSet)
 router.register(r"package-inserts", ProductPackageInsertViewSet)
+router.register(r"product-prices", ProductPriceViewSet)
 router.register(r"sales-restrictions", SalesRestrictionViewSet)
 router.register(r"orders", OrderViewSet, basename="order")
 router.register(r"prescriptions", MedicalPrescriptionViewSet, basename="prescription")
