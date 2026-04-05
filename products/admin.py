@@ -1,6 +1,8 @@
 from django.contrib import admin
 
 from products.models import (
+    Cart,
+    CartItem,
     Category,
     ExternalNotification,
     Product,
@@ -213,3 +215,20 @@ class ExternalNotificationAdmin(admin.ModelAdmin):
     search_fields = ["order__id", "event_name", "destination_masked", "external_message_id"]
     readonly_fields = ["created_at", "updated_at", "sent_at"]
     ordering = ["-created_at"]
+
+
+@admin.register(Cart)
+class CartAdmin(admin.ModelAdmin):
+    list_display = ["id", "user", "total_price", "updated_at", "created_at"]
+    search_fields = ["user__username", "user__email"]
+    readonly_fields = ["created_at", "updated_at"]
+    ordering = ["-updated_at"]
+
+
+@admin.register(CartItem)
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ["id", "cart", "product", "product_variation", "quantity", "unit_price", "total_price"]
+    list_filter = ["product__category", "created_at"]
+    search_fields = ["cart__user__username", "product__name", "product__sku"]
+    readonly_fields = ["created_at", "updated_at"]
+    ordering = ["cart", "created_at"]

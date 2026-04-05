@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
 from products.models import (
+    Cart,
+    CartItem,
     Category,
     MedicalPrescription,
     Order,
@@ -344,6 +346,75 @@ class PartnerDashboardSummarySerializer(serializers.Serializer):
     total_provider_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     total_ihealth_commission = serializers.DecimalField(max_digits=12, decimal_places=2)
     average_ticket = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class CartItemSerializer(serializers.ModelSerializer):
+    """Serializer para itens do carrinho."""
+
+    product = ProductListSerializer(read_only=True)
+    product_variation = ProductVariationSerializer(read_only=True)
+
+    class Meta:
+        model = CartItem
+        fields = [
+            "id",
+            "product",
+            "product_variation",
+            "quantity",
+            "unit_price",
+            "total_price",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["unit_price", "total_price", "created_at", "updated_at"]
+
+
+class CartSerializer(serializers.ModelSerializer):
+    """Serializer de detalhe do carrinho persistente."""
+
+    items = CartItemSerializer(many=True, read_only=True)
+    user = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ["id", "user", "items", "total_price", "created_at", "updated_at"]
+        read_only_fields = fields
+
+
+class CartItemUpsertSerializer(serializers.Serializer):
+    """Payload para inserir/atualizar item no carrinho."""
+
+    product_id = serializers.IntegerField(min_value=1)
+    product_variation_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    quantity = serializers.IntegerField(min_value=1)
+
+    def validate(self, attrs):
+        product_id = attrs["product_id"]
+        variation_id = attrs.get("product_variation_id")
+
+        product = Product.objects.filter(id=product_id, is_active=True).first()
+        if not product:
+            raise serializers.ValidationError({"product_id": "Produto inválido ou inativo."})
+
+        variation = None
+        if variation_id is not None:
+            variation = ProductVariation.objects.filter(id=variation_id).first()
+            if not variation or variation.product_id != product.id:
+                raise serializers.ValidationError({"product_variation_id": "Variação inválida para este produto."})
+
+        if attrs["quantity"] > product.stock:
+            raise serializers.ValidationError({"quantity": "Quantidade maior que o estoque disponível."})
+
+        attrs["product"] = product
+        attrs["product_variation"] = variation
+        return attrs
+
+
+class CartCheckoutSerializer(serializers.Serializer):
+    """Payload para checkout do carrinho em pedido."""
+
+    shipping_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

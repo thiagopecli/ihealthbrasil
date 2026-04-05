@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from products.views import (
+    CartViewSet,
     CategoryViewSet,
     MedicalPrescriptionViewSet,
     OrderViewSet,
@@ -25,6 +26,7 @@ router.register(r"dosages", ProductDosageViewSet)
 router.register(r"package-inserts", ProductPackageInsertViewSet)
 router.register(r"product-prices", ProductPriceViewSet)
 router.register(r"sales-restrictions", SalesRestrictionViewSet)
+router.register(r"carts", CartViewSet, basename="cart")
 router.register(r"orders", OrderViewSet, basename="order")
 router.register(r"prescriptions", MedicalPrescriptionViewSet, basename="prescription")
 router.register(r"prescription-audit", PrescriptionAccessAuditViewSet, basename="prescription-audit")
