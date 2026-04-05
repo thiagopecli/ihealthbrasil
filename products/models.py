@@ -7,7 +7,6 @@ from django.utils.text import slugify
 
 from products.storage import PrivatePrescriptionStorage
 
-
 private_prescription_storage = PrivatePrescriptionStorage()
 
 

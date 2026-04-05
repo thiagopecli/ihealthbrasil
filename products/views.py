@@ -991,7 +991,9 @@ class MedicalPrescriptionViewSet(viewsets.ModelViewSet):
         except signing.BadSignature:
             return Response({"detail": "Token inválido ou expirado."}, status=status.HTTP_403_FORBIDDEN)
 
-        prescription = get_object_or_404(MedicalPrescription.objects.select_related("order", "order__user"), id=payload["pid"])
+        prescription = get_object_or_404(
+            MedicalPrescription.objects.select_related("order", "order__user"), id=payload["pid"]
+        )
 
         expected_hash = payload.get("fh", "")
         if expected_hash and expected_hash != (prescription.file_hash or ""):

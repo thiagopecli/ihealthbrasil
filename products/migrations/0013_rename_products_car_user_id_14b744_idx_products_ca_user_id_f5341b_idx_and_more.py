@@ -6,38 +6,38 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('products', '0012_rename_products_car_user_id_14b744_idx_products_ca_user_id_f5341b_idx_and_more'),
+        ("products", "0012_rename_products_car_user_id_14b744_idx_products_ca_user_id_f5341b_idx_and_more"),
     ]
 
     operations = [
         migrations.RenameIndex(
-            model_name='cart',
-            new_name='products_ca_user_id_f5341b_idx',
-            old_name='products_car_user_id_14b744_idx',
+            model_name="cart",
+            new_name="products_ca_user_id_f5341b_idx",
+            old_name="products_car_user_id_14b744_idx",
         ),
         migrations.RenameIndex(
-            model_name='cart',
-            new_name='products_ca_updated_ab8ab0_idx',
-            old_name='products_car_updated_8f64a2_idx',
+            model_name="cart",
+            new_name="products_ca_updated_ab8ab0_idx",
+            old_name="products_car_updated_8f64a2_idx",
         ),
         migrations.RenameIndex(
-            model_name='cartitem',
-            new_name='products_ca_cart_id_b1a9ab_idx',
-            old_name='products_car_cart_id_bf018e_idx',
+            model_name="cartitem",
+            new_name="products_ca_cart_id_b1a9ab_idx",
+            old_name="products_car_cart_id_bf018e_idx",
         ),
         migrations.RenameIndex(
-            model_name='cartitem',
-            new_name='products_ca_product_a62eb6_idx',
-            old_name='products_car_product_7a4f57_idx',
+            model_name="cartitem",
+            new_name="products_ca_product_a62eb6_idx",
+            old_name="products_car_product_7a4f57_idx",
         ),
         migrations.RenameIndex(
-            model_name='cartitem',
-            new_name='products_ca_product_dfb468_idx',
-            old_name='products_car_product_c6b2e7_idx',
+            model_name="cartitem",
+            new_name="products_ca_product_dfb468_idx",
+            old_name="products_car_product_c6b2e7_idx",
         ),
         migrations.RenameIndex(
-            model_name='cartitem',
-            new_name='products_ca_cart_id_f06684_idx',
-            old_name='products_car_cart_id_8ca2b5_idx',
+            model_name="cartitem",
+            new_name="products_ca_cart_id_f06684_idx",
+            old_name="products_car_cart_id_8ca2b5_idx",
         ),
     ]
