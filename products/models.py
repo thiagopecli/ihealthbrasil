@@ -428,3 +428,117 @@ class PrescriptionAccessAudit(models.Model):
     def __str__(self) -> str:
         username = self.username_snapshot or (self.user.username if self.user else "anonimo")
         return f"{self.get_action_display()} - Receita #{self.prescription.id} por {username}"
+
+
+class PaymentCustomer(models.Model):
+    """Representa o customer do usuário no gateway de pagamento."""
+
+    GATEWAY_CHOICES = [
+        ("mock", "Mock"),
+        ("stripe", "Stripe"),
+    ]
+
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="payment_customers")
+    gateway = models.CharField(max_length=20, choices=GATEWAY_CHOICES, db_index=True)
+    external_customer_id = models.CharField(max_length=120, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Customer de Pagamento"
+        verbose_name_plural = "Customers de Pagamento"
+        unique_together = [["user", "gateway"]]
+        indexes = [
+            models.Index(fields=["gateway", "external_customer_id"]),
+            models.Index(fields=["user", "gateway"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.gateway}:{self.external_customer_id}"
+
+
+class PaymentConnectedAccount(models.Model):
+    """Conta conectada no gateway para repasses/split do fornecedor."""
+
+    GATEWAY_CHOICES = [
+        ("mock", "Mock"),
+        ("stripe", "Stripe"),
+    ]
+
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="connected_accounts")
+    gateway = models.CharField(max_length=20, choices=GATEWAY_CHOICES, db_index=True)
+    external_account_id = models.CharField(max_length=120, db_index=True)
+    onboarding_complete = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Conta Conectada de Pagamento"
+        verbose_name_plural = "Contas Conectadas de Pagamento"
+        unique_together = [["user", "gateway"]]
+        indexes = [
+            models.Index(fields=["gateway", "external_account_id"]),
+            models.Index(fields=["user", "gateway"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.gateway}:{self.external_account_id}"
+
+
+class PaymentIntent(models.Model):
+    """Intenção de pagamento criada durante o checkout."""
+
+    GATEWAY_CHOICES = [
+        ("mock", "Mock"),
+        ("stripe", "Stripe"),
+    ]
+
+    class Status(models.TextChoices):
+        REQUIRES_PAYMENT_METHOD = "requires_payment_method", "Requer método de pagamento"
+        REQUIRES_CONFIRMATION = "requires_confirmation", "Requer confirmação"
+        PROCESSING = "processing", "Processando"
+        SUCCEEDED = "succeeded", "Concluído"
+        CANCELED = "canceled", "Cancelado"
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="payment_intents")
+    gateway = models.CharField(max_length=20, choices=GATEWAY_CHOICES, db_index=True)
+    customer = models.ForeignKey(
+        PaymentCustomer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payment_intents",
+    )
+    connected_account = models.ForeignKey(
+        PaymentConnectedAccount,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payment_intents",
+    )
+    gateway_payment_intent_id = models.CharField(max_length=120, db_index=True)
+    gateway_checkout_session_id = models.CharField(max_length=120, blank=True)
+    client_secret = models.CharField(max_length=255, blank=True)
+    checkout_url = models.URLField(blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3, default="brl")
+    status = models.CharField(
+        max_length=40,
+        default=Status.REQUIRES_PAYMENT_METHOD,
+        db_index=True,
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Intenção de Pagamento"
+        verbose_name_plural = "Intenções de Pagamento"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["order", "created_at"]),
+            models.Index(fields=["status", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Pedido #{self.order_id} - {self.gateway_payment_intent_id}"
