@@ -118,6 +118,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Media files (uploads de usuarios)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+PRIVATE_MEDIA_ROOT = BASE_DIR / "private_media"
+PRESCRIPTION_SIGNED_URL_TTL_SECONDS = int(os.getenv("PRESCRIPTION_SIGNED_URL_TTL_SECONDS", "300"))
 
 # Validacao de tamanho de upload
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB

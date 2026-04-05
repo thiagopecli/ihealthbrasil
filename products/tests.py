@@ -4,8 +4,10 @@ import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -593,18 +595,27 @@ class MedicalPrescriptionAPITests(APITestCase):
 
     def test_prescription_access_audit_log_created_on_download(self):
         """Log de auditoria é criado quando receita é baixada."""
+        upload = SimpleUploadedFile("prescription.pdf", b"PDF prescription data - mock", content_type="application/pdf")
         prescription = MedicalPrescription.objects.create(
             order=self.order,
             prescription_type="DIGITAL_PHOTO",
             status=MedicalPrescription.Status.VERIFIED,
+            file=upload,
         )
-        prescription.file.name = "prescription.pdf"
-        prescription.save()
 
         self.client.force_authenticate(user=self.patient)
-        response = self.client.get(f"/api/prescriptions/{prescription.id}/download/")
+        signed_response = self.client.get(f"/api/prescriptions/{prescription.id}/download/")
+
+        self.assertEqual(signed_response.status_code, status.HTTP_200_OK)
+        self.assertIn("download_url", signed_response.data)
+        parsed = urlparse(signed_response.data["download_url"])
+        token = parse_qs(parsed.query).get("token", [None])[0]
+        self.assertIsNotNone(token)
+
+        response = self.client.get(f"/api/prescriptions/secure-download/?token={token}")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get("Content-Type"), "application/pdf")
         # Verificar log criado
         log = PrescriptionAccessAudit.objects.filter(
             prescription=prescription, action=PrescriptionAccessAudit.Action.DOWNLOADED

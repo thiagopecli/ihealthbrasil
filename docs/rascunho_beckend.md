@@ -20,10 +20,8 @@ O backend ja entrega o nucleo do produto:
 
 O que ainda impede considerar o sistema pronto para producao total:
 
-- carrinho persistente e fluxo de checkout completo antes do pedido
 - i18n funcional na API com Accept-Language
 - precificacao multimoeda por pais/moeda
-- armazenamento privado real para receitas com URL assinada temporaria
 - expiracao automatica de receitas com tarefa agendada
 - integracao externa de prescricao, se esta ainda for requisito de negocio
 - observabilidade mais madura com correlation_id, metricas e tracing
@@ -37,8 +35,8 @@ O que ainda impede considerar o sistema pronto para producao total:
 | Sprint 1 | Concluida | 100% | Auth JWT, RBAC, usuario customizado e auditoria de login/logout | Reset de senha e reforcos opcionais |
 | Sprint 2 | Concluida | 100% | Catalogo regulatorio, filtros e CRUD do backend | Imagem de produto e controle transacional de estoque |
 | Sprint 3 | Concluida | 100% | i18n por Accept-Language, bulas com fallback e multimoeda por pais/moeda | Nenhuma pendencia aberta |
-| Sprint 4 | Parcial | 45% | Order, OrderItem e detalhe de pedido | Carrinho persistente e checkout completo |
-| Sprint 5 | Concluida com gaps | 85% | Upload, auditoria e aprovacao/rejeicao de receitas | Storage privado e URL assinada temporaria |
+| Sprint 4 | Concluida | 100% | Carrinho persistente (Cart/CartItem), endpoints de carrinho e checkout completo carrinho -> pedido | Nenhuma pendencia aberta |
+| Sprint 5 | Concluida | 100% | Upload, auditoria, aprovacao/rejeicao, storage privado e URL assinada temporaria | Nenhuma pendencia aberta |
 | Sprint 6 | Concluida | 95% | Gateway, customer, connected account e payment intent | Validacao operacional do gateway real |
 | Sprint 7 | Concluida | 95% | Webhook seguro, idempotencia e split | Monitoramento financeiro e conciliacao |
 | Sprint 8 | Concluida com item em aberto | 80% | Celery, SMS assíncrono e auditoria de notificacao | Integração Memed, se ainda for requisito |
@@ -119,31 +117,23 @@ Ja foi feito:
 
 ### Sprint 4 - Carrinho e pedido
 
-Status: parcial.
+Status: concluida.
 
 Ja foi feito:
 
 - modelo Order
 - modelo OrderItem
+- modelo Cart persistente por usuario
+- modelo CartItem persistente
+- endpoints de carrinho: me, add item, update item, remove item e clear
+- checkout completo carrinho -> pedido com criacao de Order e OrderItem
+- recálculo consolidado de total no backend
 - status de pedido: PENDING, PAID, UNDER_MEDICAL_REVIEW, APPROVED, CANCELLED e FAILED
 - detalhe de pedido com itens
 
-Falta para producao:
-
-- modelo Cart persistente
-- adicionar item ao carrinho
-- remover item do carrinho
-- alterar quantidades com recalculo do total
-- checkout completo carrinho -> pedido
-
-Observacao:
-
-- hoje o fluxo entra direto em Order e em pagamento
-- isso atende parte do negocio, mas ainda nao substitui um carrinho real
-
 ### Sprint 5 - Prescricoes e receitas
 
-Status: concluida, com gaps de producao.
+Status: concluida.
 
 Ja foi feito:
 
@@ -154,11 +144,11 @@ Ja foi feito:
 - auditoria de acesso com logs de upload, download, view, verify e reject
 - aprovacao e rejeicao por admin
 - sanitizacao de payloads sensiveis na auditoria
+- armazenamento privado de receita fora de media publica
+- URL assinada temporaria para download seguro
 
 Falta para producao:
 
-- armazenamento privado real, em vez de media local publica
-- URL assinada temporaria para download
 - job automatizado para marcar expiracao da receita
 - integracao com OCR/validacao automatica, se for requisito
 - notificacao por e-mail quando a receita for aprovada ou rejeitada
@@ -268,8 +258,6 @@ Se o criterio for manter o escopo atual do backend, o que ja esta pronto para su
 
 Prioridade alta:
 
-- carrinho persistente e checkout completo
-- armazenamento privado de receitas com URL assinada
 - expiracao automatica de receitas
 - i18n e multimoeda, se o roadmap continuar exigindo isso
 - observabilidade com correlation_id e metricas
@@ -291,7 +279,7 @@ Prioridade baixa, mas recomendada:
 
 - autenticacao e RBAC testados em CI
 - catalogo validado com regras regulatorias
-- prescricoes com armazenamento privado e auditoria completa
+- prescricoes com armazenamento privado, URL assinada temporaria e auditoria completa
 - pagamento aprovado, expirado e falho cobertos por teste
 - notificacoes externas com fallback e rastreio
 - observabilidade minima implementada

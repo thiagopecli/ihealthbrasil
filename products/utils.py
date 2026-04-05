@@ -4,6 +4,8 @@ import hashlib
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
+from django.core import signing
 from django.utils import timezone
 
 DEFAULT_COUNTRY = "BR"
@@ -189,3 +191,19 @@ def get_localized_message(request, key: str) -> str:
 
     messages = API_MESSAGES.get(key, {})
     return messages.get(family) or messages.get("pt") or key
+
+
+def build_prescription_download_token(*, prescription_id: int, requested_by_user_id: int | None, file_hash: str) -> str:
+    """Gera token assinado para download temporário de receita."""
+    payload = {
+        "pid": prescription_id,
+        "uid": requested_by_user_id,
+        "fh": file_hash or "",
+    }
+    return signing.dumps(payload, salt="prescription-download")
+
+
+def parse_prescription_download_token(token: str) -> dict:
+    """Valida e decodifica token assinado de download de receita."""
+    max_age = int(getattr(settings, "PRESCRIPTION_SIGNED_URL_TTL_SECONDS", 300))
+    return signing.loads(token, salt="prescription-download", max_age=max_age)
