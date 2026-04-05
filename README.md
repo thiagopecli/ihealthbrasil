@@ -237,7 +237,7 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-## Status por sprint
+## Status por sprint (backend)
 
 ### Sprint 0 (entregue)
 
@@ -259,17 +259,29 @@ python manage.py createsuperuser
 - expansao de saude/regulatorio (dosagens, bulas, restricoes)
 - endpoints REST para recursos de catalogo
 
-### Sprint 03 (entregue)
+### Sprint 03 (parcial)
 
-- documentacao de request/response dos endpoints principais
-- matriz de permissoes por perfil com base nas rules reais do backend
-- colecao versionada de testes de API para smoke e validacao funcional
+- base de i18n habilitada no Django (`USE_I18N`)
+- suporte de idioma em bulas (pt_BR, en_US, es_ES)
+- documentacao e colecoes de API atualizadas
 
-### Sprint 04 (entregue)
+Pendente para fechar a sprint:
 
-- OpenAPI/Swagger/ReDoc habilitados para documentacao da API
-- cobertura de RBAC ampliada para cenarios de escrita administrativa no catalogo
-- colecao Bruno versionada para execucao de fluxos de auth, RBAC e catalogo
+- i18n funcional na API por `Accept-Language`
+- traducao de mensagens principais
+- modelo de precificacao multimoeda por pais/moeda
+
+### Sprint 04 (parcial)
+
+- modelos `Order` e `OrderItem` implementados
+- endpoints de pedidos com listagem e detalhe
+- base de checkout para pagamento via `payment-intent`
+
+Pendente para fechar a sprint:
+
+- carrinho persistente (`Cart`)
+- endpoints de adicionar/remover/atualizar itens do carrinho
+- fechamento de carrinho para pedido com recálculo consolidado
 
 ### Sprint 05 (entregue)
 
@@ -306,6 +318,12 @@ Endpoint novo:
 - fallback seguro para execucao local quando broker estiver indisponivel
 - auditoria de notificacoes externas em `ExternalNotification`
 
+### Sprint 09 (entregue)
+
+- endpoints de gestao do fornecedor com restricao por ownership
+- extrato financeiro de split para parceiro
+- resumo agregado para dashboard financeiro
+
 ### Sprint 10 (entregue)
 
 - otimização de querysets em endpoints críticos para reduzir N+1
@@ -314,11 +332,14 @@ Endpoint novo:
 - Dockerização do backend com `Dockerfile` e `docker-compose.yml`
 - CI com validação de build de imagem Docker
 
-## Proximos passos sugeridos
+## Proximos passos sugeridos (foco producao)
 
-- adicionar exemplos OpenAPI mais detalhados por endpoint (request/response e erros)
-- expandir cenarios de smoke para fluxos negativos de autenticacao e autorizacao
-- fortalecer cobertura de testes de integracao para regras regulatorias do catalogo
+- implementar carrinho persistente e fluxo completo de checkout
+- concluir i18n na API e precificacao multimoeda
+- mover receitas para storage privado com URL assinada temporaria
+- adicionar expiracao automatica de receitas via tarefa agendada
+- elevar observabilidade com `correlation_id`, metricas e alertas
+- expandir testes de integracao para fluxos criticos (checkout, webhook, prescricao)
 
 ## Artefatos da Sprint 03
 
