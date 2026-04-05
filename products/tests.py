@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -16,6 +17,7 @@ from products.models import (
     PaymentConnectedAccount,
     PaymentCustomer,
     PaymentIntent,
+    PaymentTransaction,
     PrescriptionAccessAudit,
     Product,
     ProductDosage,
@@ -677,3 +679,175 @@ class PaymentWebhookAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, Order.Status.UNDER_MEDICAL_REVIEW)
+
+
+class PartnerPanelAPITests(APITestCase):
+    """Testes da Sprint 9: painel do fornecedor e relatórios financeiros."""
+
+    def setUp(self):
+        user_model = get_user_model()
+        self.provider = user_model.objects.create_user(
+            username="provider_panel",
+            email="provider_panel@example.com",
+            profile=user_model.Profile.PROVIDER,
+        )
+        self.other_provider = user_model.objects.create_user(
+            username="other_provider_panel",
+            email="other_provider_panel@example.com",
+            profile=user_model.Profile.PROVIDER,
+        )
+        self.patient = user_model.objects.create_user(
+            username="patient_partner",
+            email="patient_partner@example.com",
+            profile=user_model.Profile.PATIENT,
+        )
+
+        self.category = Category.objects.create(name="Saúde Mental", description="Produtos para bem-estar")
+
+        self.owned_product = Product.objects.create(
+            category=self.category,
+            provider=self.provider,
+            name="Produto do Fornecedor A",
+            description="Produto gerenciado pelo fornecedor A",
+            price=Decimal("49.90"),
+            requires_prescription=False,
+            stock=20,
+            sku="PAINEL-A-001",
+            is_active=True,
+        )
+        self.other_product = Product.objects.create(
+            category=self.category,
+            provider=self.other_provider,
+            name="Produto do Fornecedor B",
+            description="Produto gerenciado pelo fornecedor B",
+            price=Decimal("99.90"),
+            requires_prescription=False,
+            stock=15,
+            sku="PAINEL-B-001",
+            is_active=True,
+        )
+
+        self.order_approved_1 = Order.objects.create(
+            user=self.patient,
+            provider=self.provider,
+            status=Order.Status.PAID,
+            total_price=Decimal("100.00"),
+            commission_rate=Decimal("10.00"),
+        )
+        self.order_approved_2 = Order.objects.create(
+            user=self.patient,
+            provider=self.provider,
+            status=Order.Status.PAID,
+            total_price=Decimal("50.00"),
+            commission_rate=Decimal("10.00"),
+        )
+        self.order_other_provider = Order.objects.create(
+            user=self.patient,
+            provider=self.other_provider,
+            status=Order.Status.PAID,
+            total_price=Decimal("300.00"),
+            commission_rate=Decimal("10.00"),
+        )
+
+        PaymentTransaction.objects.create(
+            order=self.order_approved_1,
+            gateway="mock",
+            gateway_transaction_id="tx-panel-a-1",
+            gateway_status=PaymentTransaction.Status.APPROVED,
+            payment_method=PaymentTransaction.Method.PIX,
+            gross_amount=Decimal("100.00"),
+            provider_amount=Decimal("90.00"),
+            ihealth_commission_amount=Decimal("10.00"),
+            commission_rate_applied=Decimal("10.00"),
+            is_split_calculated=True,
+            paid_at=datetime(2026, 4, 5, 10, 0, tzinfo=timezone.utc),
+        )
+        PaymentTransaction.objects.create(
+            order=self.order_approved_2,
+            gateway="mock",
+            gateway_transaction_id="tx-panel-a-2",
+            gateway_status=PaymentTransaction.Status.APPROVED,
+            payment_method=PaymentTransaction.Method.BOLETO,
+            gross_amount=Decimal("50.00"),
+            provider_amount=Decimal("45.00"),
+            ihealth_commission_amount=Decimal("5.00"),
+            commission_rate_applied=Decimal("10.00"),
+            is_split_calculated=True,
+            paid_at=datetime(2026, 4, 4, 12, 0, tzinfo=timezone.utc),
+        )
+        PaymentTransaction.objects.create(
+            order=self.order_other_provider,
+            gateway="mock",
+            gateway_transaction_id="tx-panel-b-1",
+            gateway_status=PaymentTransaction.Status.APPROVED,
+            payment_method=PaymentTransaction.Method.CREDIT_CARD,
+            gross_amount=Decimal("300.00"),
+            provider_amount=Decimal("270.00"),
+            ihealth_commission_amount=Decimal("30.00"),
+            commission_rate_applied=Decimal("10.00"),
+            is_split_calculated=True,
+            paid_at=datetime(2026, 4, 5, 11, 0, tzinfo=timezone.utc),
+        )
+
+    def test_provider_products_list_returns_only_owned_items(self):
+        self.client.force_authenticate(user=self.provider)
+
+        response = self.client.get("/api/provider/products/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["slug"], self.owned_product.slug)
+
+    def test_provider_create_product_sets_logged_user_as_owner(self):
+        self.client.force_authenticate(user=self.provider)
+
+        payload = {
+            "name": "Novo Produto Parceiro",
+            "description": "Criado via painel parceiro",
+            "price": "129.90",
+            "requires_prescription": False,
+            "active_ingredient": "",
+            "controlled_substance_class": "",
+            "min_age_required": 0,
+            "max_age_allowed": 0,
+            "stock": 11,
+            "sku": "PAINEL-A-NEW",
+            "category": self.category.id,
+            "is_active": True,
+        }
+        response = self.client.post("/api/provider/products/", payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created_product = Product.objects.get(id=response.data["id"])
+        self.assertEqual(created_product.provider, self.provider)
+
+    def test_provider_cannot_access_other_provider_product(self):
+        self.client.force_authenticate(user=self.provider)
+
+        response = self.client.get(f"/api/provider/products/{self.other_product.slug}/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_partner_financial_summary_aggregates_only_provider_transactions(self):
+        self.client.force_authenticate(user=self.provider)
+
+        response = self.client.get("/api/provider/finance/statement/summary/?start_date=2026-04-04&end_date=2026-04-05")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_orders"], 2)
+        self.assertEqual(response.data["total_gross"], "150.00")
+        self.assertEqual(response.data["total_provider_amount"], "135.00")
+        self.assertEqual(response.data["total_ihealth_commission"], "15.00")
+        self.assertEqual(response.data["average_ticket"], "75.00")
+
+    def test_partner_statement_lists_only_provider_transactions(self):
+        self.client.force_authenticate(user=self.provider)
+
+        response = self.client.get("/api/provider/finance/statement/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        order_ids = [item["order_id"] for item in response.data["results"]]
+        self.assertIn(self.order_approved_1.id, order_ids)
+        self.assertIn(self.order_approved_2.id, order_ids)
+        self.assertNotIn(self.order_other_provider.id, order_ids)

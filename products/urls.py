@@ -5,6 +5,8 @@ from products.views import (
     CategoryViewSet,
     MedicalPrescriptionViewSet,
     OrderViewSet,
+    PartnerProductViewSet,
+    PartnerSplitStatementViewSet,
     PaymentGatewayWebhookAPIView,
     PrescriptionAccessAuditViewSet,
     ProductDosageViewSet,
@@ -24,6 +26,8 @@ router.register(r"sales-restrictions", SalesRestrictionViewSet)
 router.register(r"orders", OrderViewSet, basename="order")
 router.register(r"prescriptions", MedicalPrescriptionViewSet, basename="prescription")
 router.register(r"prescription-audit", PrescriptionAccessAuditViewSet, basename="prescription-audit")
+router.register(r"provider/products", PartnerProductViewSet, basename="provider-products")
+router.register(r"provider/finance/statement", PartnerSplitStatementViewSet, basename="provider-finance-statement")
 
 app_name = "products"
 

@@ -175,6 +175,75 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
+class PartnerProductSerializer(serializers.ModelSerializer):
+    """Serializer de gestão de produtos no painel do fornecedor."""
+
+    provider_username = serializers.CharField(source="provider.username", read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "price",
+            "requires_prescription",
+            "active_ingredient",
+            "controlled_substance_class",
+            "min_age_required",
+            "max_age_allowed",
+            "stock",
+            "sku",
+            "is_active",
+            "category",
+            "provider",
+            "provider_username",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "slug", "provider", "provider_username", "created_at", "updated_at"]
+
+
+class PartnerSplitStatementSerializer(serializers.ModelSerializer):
+    """Serializer do extrato de split para o parceiro."""
+
+    order_id = serializers.IntegerField(source="order.id", read_only=True)
+    order_status = serializers.CharField(source="order.status", read_only=True)
+
+    class Meta:
+        model = PaymentTransaction
+        fields = [
+            "id",
+            "order_id",
+            "order_status",
+            "gateway",
+            "gateway_transaction_id",
+            "gateway_status",
+            "payment_method",
+            "gross_amount",
+            "provider_amount",
+            "ihealth_commission_amount",
+            "commission_rate_applied",
+            "is_split_calculated",
+            "paid_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class PartnerDashboardSummarySerializer(serializers.Serializer):
+    """Resumo financeiro agregado para dashboard do parceiro."""
+
+    start_date = serializers.DateField(allow_null=True)
+    end_date = serializers.DateField(allow_null=True)
+    total_orders = serializers.IntegerField()
+    total_gross = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_provider_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_ihealth_commission = serializers.DecimalField(max_digits=12, decimal_places=2)
+    average_ticket = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
 class OrderItemSerializer(serializers.ModelSerializer):
     """Serializer para itens do pedido."""
 

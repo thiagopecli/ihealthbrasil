@@ -36,6 +36,14 @@ class Product(models.Model):
     """Produto do marketplace com suporte a regulações de saúde."""
 
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")
+    provider = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        related_name="provided_products",
+        null=True,
+        blank=True,
+        help_text="Fornecedor dono do produto no marketplace",
+    )
     name = models.CharField(max_length=200)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -74,6 +82,7 @@ class Product(models.Model):
             models.Index(fields=["is_active"]),
             models.Index(fields=["sku"]),
             models.Index(fields=["category", "is_active"]),
+            models.Index(fields=["provider", "is_active"]),
             models.Index(fields=["requires_prescription"]),
         ]
 
