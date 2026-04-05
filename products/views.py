@@ -1,5 +1,5 @@
-from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -22,8 +22,8 @@ from products.models import (
     ProductVariation,
     SalesRestriction,
 )
-from products.permissions import IsAdminOrReadOnly
 from products.payments import PaymentGatewayError, get_payment_gateway
+from products.permissions import IsAdminOrReadOnly
 from products.serializers import (
     CategorySerializer,
     MedicalPrescriptionAdminSerializer,
