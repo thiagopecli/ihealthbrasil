@@ -363,6 +363,87 @@ class OrderItem(models.Model):
         return f"{product_name} x{self.quantity} (Pedido #{self.order.id})"
 
 
+class Cart(models.Model):
+    """Carrinho persistente por usuário."""
+
+    user = models.OneToOneField(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="cart",
+    )
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Carrinho"
+        verbose_name_plural = "Carrinhos"
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["updated_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Carrinho de {self.user.username}"
+
+    def recalculate_total(self, *, save: bool = True) -> Decimal:
+        """Recalcula e retorna total do carrinho com base nos itens."""
+        total = Decimal("0.00")
+        for item in self.items.select_related("product", "product_variation"):
+            item.recalculate_prices(save=True)
+            total += item.total_price
+
+        self.total_price = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if save:
+            self.save(update_fields=["total_price", "updated_at"])
+        return self.total_price
+
+    def clear(self) -> None:
+        """Limpa os itens do carrinho e zera o total."""
+        self.items.all().delete()
+        self.total_price = Decimal("0.00")
+        self.save(update_fields=["total_price", "updated_at"])
+
+
+class CartItem(models.Model):
+    """Item do carrinho persistente."""
+
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="cart_items")
+    product_variation = models.ForeignKey(ProductVariation, on_delete=models.SET_NULL, null=True, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Item do Carrinho"
+        verbose_name_plural = "Itens do Carrinho"
+        ordering = ["cart", "created_at"]
+        indexes = [
+            models.Index(fields=["cart"]),
+            models.Index(fields=["product"]),
+            models.Index(fields=["product_variation"]),
+            models.Index(fields=["cart", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.product.name} x{self.quantity}"
+
+    def recalculate_prices(self, *, save: bool = True) -> None:
+        """Recalcula preço unitário e total com base no produto/variação atuais."""
+        variation_modifier = self.product_variation.price_modifier if self.product_variation else Decimal("0.00")
+        self.unit_price = (self.product.price + variation_modifier).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        self.total_price = (self.unit_price * Decimal(self.quantity)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if save:
+            if self.pk:
+                self.save(update_fields=["quantity", "unit_price", "total_price", "updated_at"])
+            else:
+                self.save()
+
+
 class PaymentTransaction(models.Model):
     """Transação financeira de um pedido com suporte a split."""
 

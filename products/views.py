@@ -20,6 +20,8 @@ from rest_framework.views import APIView
 from accounts.permissions import HasAnyProfile
 from products.audit import log_prescription_access
 from products.models import (
+    Cart,
+    CartItem,
     Category,
     MedicalPrescription,
     Order,
@@ -40,6 +42,9 @@ from products.models import (
 from products.payments import PaymentGatewayError, get_payment_gateway
 from products.permissions import IsAdminOrReadOnly, IsProviderOrAdminProfile
 from products.serializers import (
+    CartCheckoutSerializer,
+    CartItemUpsertSerializer,
+    CartSerializer,
     CategorySerializer,
     MedicalPrescriptionAdminSerializer,
     MedicalPrescriptionDetailSerializer,
@@ -442,6 +447,180 @@ class SalesRestrictionViewSet(viewsets.ModelViewSet):
         if product_slug:
             queryset = queryset.filter(product__slug=product_slug)
         return queryset
+
+
+class CartViewSet(viewsets.ViewSet):
+    """Carrinho persistente por usuário com checkout para pedido."""
+
+    permission_classes = [IsAuthenticated]
+
+    def _get_or_create_cart(self, user) -> Cart:
+        cart, _ = Cart.objects.get_or_create(user=user)
+        return cart
+
+    def _serialize_cart(self, cart: Cart, request) -> dict:
+        cart = (
+            Cart.objects.select_related("user")
+            .prefetch_related(
+                Prefetch(
+                    "items",
+                    queryset=CartItem.objects.select_related(
+                        "product__category",
+                        "product_variation",
+                        "product_variation__product",
+                    ),
+                )
+            )
+            .get(id=cart.id)
+        )
+        cart.recalculate_total(save=True)
+        return CartSerializer(cart, context={"request": request}).data
+
+    @action(detail=False, methods=["get"], url_path="me")
+    def me(self, request):
+        """Retorna o carrinho persistente do usuário autenticado."""
+        cart = self._get_or_create_cart(request.user)
+        return Response(self._serialize_cart(cart, request), status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"], url_path="items")
+    @transaction.atomic
+    def add_item(self, request):
+        """Adiciona item ao carrinho ou incrementa quantidade se já existir."""
+        cart = self._get_or_create_cart(request.user)
+        serializer = CartItemUpsertSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        product = serializer.validated_data["product"]
+        product_variation = serializer.validated_data["product_variation"]
+        quantity = serializer.validated_data["quantity"]
+
+        item_qs = CartItem.objects.select_for_update().filter(cart=cart, product=product)
+        if product_variation is None:
+            item_qs = item_qs.filter(product_variation__isnull=True)
+        else:
+            item_qs = item_qs.filter(product_variation=product_variation)
+
+        cart_item = item_qs.first()
+        if cart_item:
+            new_quantity = cart_item.quantity + quantity
+            if new_quantity > product.stock:
+                return Response(
+                    {"detail": "Quantidade total excede o estoque disponível."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            cart_item.quantity = new_quantity
+        else:
+            cart_item = CartItem(
+                cart=cart,
+                product=product,
+                product_variation=product_variation,
+                quantity=quantity,
+                unit_price=Decimal("0.00"),
+                total_price=Decimal("0.00"),
+            )
+
+        cart_item.recalculate_prices(save=True)
+        cart.recalculate_total(save=True)
+
+        return Response(self._serialize_cart(cart, request), status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["patch", "delete"], url_path=r"items/(?P<item_id>[^/.]+)")
+    @transaction.atomic
+    def update_item(self, request, item_id=None):
+        """Atualiza quantidade ou remove item do carrinho."""
+        cart = self._get_or_create_cart(request.user)
+        item = CartItem.objects.select_for_update().filter(id=item_id, cart=cart).first()
+        if not item:
+            return Response({"detail": "Item do carrinho não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.method.lower() == "delete":
+            item.delete()
+            cart.recalculate_total(save=True)
+            return Response(self._serialize_cart(cart, request), status=status.HTTP_200_OK)
+
+        quantity = request.data.get("quantity")
+        if not isinstance(quantity, int) or quantity < 1:
+            return Response(
+                {"detail": "Campo quantity deve ser inteiro maior que zero."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if quantity > item.product.stock:
+            return Response(
+                {"detail": "Quantidade maior que o estoque disponível."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        item.quantity = quantity
+        item.recalculate_prices(save=True)
+        cart.recalculate_total(save=True)
+        return Response(self._serialize_cart(cart, request), status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["delete"], url_path="clear")
+    @transaction.atomic
+    def clear(self, request):
+        """Remove todos os itens do carrinho."""
+        cart = self._get_or_create_cart(request.user)
+        cart.clear()
+        return Response(self._serialize_cart(cart, request), status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"], url_path="checkout")
+    @transaction.atomic
+    def checkout(self, request):
+        """Converte carrinho em pedido consolidado e limpa carrinho."""
+        payload_serializer = CartCheckoutSerializer(data=request.data)
+        payload_serializer.is_valid(raise_exception=True)
+
+        cart = (
+            Cart.objects.select_for_update()
+            .prefetch_related("items", "items__product", "items__product_variation")
+            .filter(user=request.user)
+            .first()
+        )
+        if not cart or not cart.items.exists():
+            return Response({"detail": "Carrinho vazio."}, status=status.HTTP_400_BAD_REQUEST)
+
+        for item in cart.items.all():
+            if not item.product.is_active:
+                return Response(
+                    {"detail": f"Produto inativo no carrinho: {item.product.name}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if item.quantity > item.product.stock:
+                return Response(
+                    {"detail": f"Estoque insuficiente para {item.product.name}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        cart.recalculate_total(save=True)
+
+        provider_ids = {item.product.provider_id for item in cart.items.all() if item.product.provider_id}
+        provider_id = provider_ids.pop() if len(provider_ids) == 1 else None
+
+        order = Order.objects.create(
+            user=request.user,
+            provider_id=provider_id,
+            status=Order.Status.PENDING,
+            total_price=cart.total_price,
+            shipping_address=payload_serializer.validated_data.get("shipping_address"),
+            notes=payload_serializer.validated_data.get("notes"),
+        )
+
+        order_items = []
+        for item in cart.items.all():
+            order_items.append(
+                OrderItem(
+                    order=order,
+                    product=item.product,
+                    product_variation=item.product_variation,
+                    quantity=item.quantity,
+                    unit_price=item.unit_price,
+                    total_price=item.total_price,
+                )
+            )
+
+        OrderItem.objects.bulk_create(order_items)
+        cart.clear()
+
+        order_output = OrderDetailSerializer(order, context={"request": request})
+        return Response(order_output.data, status=status.HTTP_201_CREATED)
 
 
 class OrderViewSet(viewsets.ModelViewSet):

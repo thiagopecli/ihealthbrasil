@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from products.models import (
+    Cart,
     Category,
     MedicalPrescription,
     Order,
@@ -379,6 +380,153 @@ class OrderAPITests(APITestCase):
         """Acesso não autenticado retorna 401."""
         response = self.client.get("/api/orders/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class CartCheckoutAPITests(APITestCase):
+    """Testes de carrinho persistente e checkout (Sprint 4)."""
+
+    def setUp(self):
+        user_model = get_user_model()
+        self.patient = user_model.objects.create_user(
+            username="cart_patient",
+            email="cart_patient@example.com",
+            profile=user_model.Profile.PATIENT,
+        )
+
+        self.provider = user_model.objects.create_user(
+            username="cart_provider",
+            email="cart_provider@example.com",
+            profile=user_model.Profile.PROVIDER,
+        )
+
+        self.category = Category.objects.create(name="Carrinho", description="Produtos para testes de carrinho")
+        self.product = Product.objects.create(
+            category=self.category,
+            provider=self.provider,
+            name="Produto Carrinho",
+            description="Produto base para testes",
+            price=Decimal("19.90"),
+            requires_prescription=False,
+            stock=10,
+            sku="CRT-001",
+            is_active=True,
+        )
+
+        self.product_variation = ProductVariation.objects.create(
+            product=self.product,
+            name="Dose",
+            value="500mg",
+            sku_suffix="500",
+            price_modifier=Decimal("2.00"),
+            stock=8,
+        )
+
+    def test_authenticated_user_gets_persistent_cart(self):
+        self.client.force_authenticate(user=self.patient)
+        response = self.client.get("/api/carts/me/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["total_price"], "0.00")
+
+    def test_add_update_remove_and_clear_cart_items(self):
+        self.client.force_authenticate(user=self.patient)
+
+        add_response = self.client.post(
+            "/api/carts/items/",
+            {
+                "product_id": self.product.id,
+                "product_variation_id": self.product_variation.id,
+                "quantity": 2,
+            },
+            format="json",
+        )
+        self.assertEqual(add_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(add_response.data["items"]), 1)
+        self.assertEqual(add_response.data["total_price"], "43.80")
+
+        item_id = add_response.data["items"][0]["id"]
+        patch_response = self.client.patch(
+            f"/api/carts/items/{item_id}/",
+            {"quantity": 3},
+            format="json",
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(patch_response.data["items"][0]["quantity"], 3)
+        self.assertEqual(patch_response.data["total_price"], "65.70")
+
+        remove_response = self.client.delete(f"/api/carts/items/{item_id}/")
+        self.assertEqual(remove_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(remove_response.data["items"], [])
+        self.assertEqual(remove_response.data["total_price"], "0.00")
+
+        self.client.post(
+            "/api/carts/items/",
+            {
+                "product_id": self.product.id,
+                "quantity": 1,
+            },
+            format="json",
+        )
+        clear_response = self.client.delete("/api/carts/clear/")
+        self.assertEqual(clear_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(clear_response.data["items"], [])
+        self.assertEqual(clear_response.data["total_price"], "0.00")
+
+    def test_checkout_creates_order_and_order_items_and_clears_cart(self):
+        self.client.force_authenticate(user=self.patient)
+
+        self.client.post(
+            "/api/carts/items/",
+            {
+                "product_id": self.product.id,
+                "quantity": 2,
+            },
+            format="json",
+        )
+
+        checkout_response = self.client.post(
+            "/api/carts/checkout/",
+            {
+                "shipping_address": "Rua A, 123 - Sao Paulo/SP",
+                "notes": "Entregar no periodo da tarde",
+            },
+            format="json",
+        )
+
+        self.assertEqual(checkout_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(checkout_response.data["total_price"], "39.80")
+        self.assertEqual(len(checkout_response.data["items"]), 1)
+        self.assertEqual(checkout_response.data["items"][0]["quantity"], 2)
+
+        order = Order.objects.get(id=checkout_response.data["id"])
+        self.assertEqual(order.user_id, self.patient.id)
+        self.assertEqual(order.provider_id, self.provider.id)
+        self.assertEqual(order.total_price, Decimal("39.80"))
+
+        cart = Cart.objects.get(user=self.patient)
+        self.assertEqual(cart.items.count(), 0)
+        self.assertEqual(cart.total_price, Decimal("0.00"))
+
+    def test_checkout_with_empty_cart_returns_400(self):
+        self.client.force_authenticate(user=self.patient)
+        response = self.client.post("/api/carts/checkout/", {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Carrinho vazio.")
+
+    def test_add_item_above_stock_returns_400(self):
+        self.client.force_authenticate(user=self.patient)
+        response = self.client.post(
+            "/api/carts/items/",
+            {
+                "product_id": self.product.id,
+                "quantity": 999,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("quantity", response.data)
 
 
 class MedicalPrescriptionAPITests(APITestCase):
