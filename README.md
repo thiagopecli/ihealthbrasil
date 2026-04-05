@@ -18,6 +18,7 @@ Construir uma base de API robusta com foco em:
 - Django REST Framework
 - Simple JWT
 - drf-spectacular (OpenAPI/Swagger)
+- Stripe SDK (integração de pagamentos)
 - SQLite no desenvolvimento local
 - PostgreSQL em producao (via `DATABASE_URL`)
 
@@ -237,6 +238,24 @@ python manage.py createsuperuser
 - OpenAPI/Swagger/ReDoc habilitados para documentacao da API
 - cobertura de RBAC ampliada para cenarios de escrita administrativa no catalogo
 - colecao Bruno versionada para execucao de fluxos de auth, RBAC e catalogo
+
+### Sprint 05 (entregue)
+
+- fluxo de upload e auditoria de receitas medicas para produtos controlados
+- endpoint de aprovacao/rejeicao de receita por admin
+- trilha de auditoria LGPD para acesso a receitas
+
+### Sprint 06 (entregue)
+
+- integração de gateway de pagamento com provider configuravel (`mock` e `stripe`)
+- criação de customer (comprador) no gateway
+- criação de connected account (fornecedor) para split
+- criação de payment intent no checkout com retorno de token (`client_secret`) e link (`checkout_url`)
+
+Endpoint novo de checkout/pagamento:
+
+- `POST /api/orders/{id}/payment-intent/`
+  - payload opcional: `provider_user_id`, `currency`
 
 ## Proximos passos sugeridos
 
