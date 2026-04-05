@@ -1,9 +1,12 @@
 import hashlib
 import hmac
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Count, Sum
+from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -31,7 +34,7 @@ from products.models import (
     SalesRestriction,
 )
 from products.payments import PaymentGatewayError, get_payment_gateway
-from products.permissions import IsAdminOrReadOnly
+from products.permissions import IsAdminOrReadOnly, IsProviderOrAdminProfile
 from products.serializers import (
     CategorySerializer,
     MedicalPrescriptionAdminSerializer,
@@ -39,6 +42,9 @@ from products.serializers import (
     MedicalPrescriptionUploadSerializer,
     OrderDetailSerializer,
     OrderListSerializer,
+    PartnerDashboardSummarySerializer,
+    PartnerProductSerializer,
+    PartnerSplitStatementSerializer,
     PaymentIntentCreateSerializer,
     PaymentIntentSerializer,
     PrescriptionAccessAuditSerializer,
@@ -170,6 +176,105 @@ class ProductViewSet(viewsets.ModelViewSet):
         restrictions = product.sales_restrictions.filter(is_active=True)
         serializer = SalesRestrictionSerializer(restrictions, many=True)
         return Response({"product_slug": slug, "restrictions": serializer.data})
+
+
+class PartnerProductViewSet(viewsets.ModelViewSet):
+    """CRUD de produtos do próprio fornecedor (ownership)."""
+
+    serializer_class = PartnerProductSerializer
+    permission_classes = [IsAuthenticated, IsProviderOrAdminProfile]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["category", "requires_prescription", "is_active"]
+    search_fields = ["name", "description", "sku", "active_ingredient"]
+    ordering_fields = ["name", "price", "created_at", "stock", "updated_at"]
+    ordering = ["-updated_at"]
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Product.objects.select_related("category", "provider").all()
+
+        if not user.is_staff and getattr(user, "profile", None) != "ADMIN":
+            queryset = queryset.filter(provider=user)
+
+        category_slug = self.request.query_params.get("category_slug")
+        if category_slug:
+            queryset = queryset.filter(category__slug=category_slug)
+
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(provider=self.request.user)
+
+
+class PartnerSplitStatementViewSet(viewsets.ReadOnlyModelViewSet):
+    """Extrato financeiro de split e resumo agregado para o parceiro."""
+
+    serializer_class = PartnerSplitStatementSerializer
+    permission_classes = [IsAuthenticated, IsProviderOrAdminProfile]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    ordering_fields = ["paid_at", "created_at", "gross_amount", "provider_amount"]
+    ordering = ["-paid_at", "-created_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = PaymentTransaction.objects.select_related("order", "order__provider").filter(
+            is_split_calculated=True
+        )
+
+        if not user.is_staff and getattr(user, "profile", None) != "ADMIN":
+            queryset = queryset.filter(order__provider=user)
+
+        gateway_status = self.request.query_params.get("gateway_status")
+        if gateway_status:
+            queryset = queryset.filter(gateway_status=gateway_status.upper())
+
+        start_date = self.request.query_params.get("start_date")
+        if start_date:
+            parsed_start = parse_date(start_date)
+            if parsed_start:
+                queryset = queryset.filter(paid_at__date__gte=parsed_start)
+
+        end_date = self.request.query_params.get("end_date")
+        if end_date:
+            parsed_end = parse_date(end_date)
+            if parsed_end:
+                queryset = queryset.filter(paid_at__date__lte=parsed_end)
+
+        return queryset
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        approved_queryset = self.get_queryset().filter(gateway_status=PaymentTransaction.Status.APPROVED)
+        totals = approved_queryset.aggregate(
+            total_orders=Count("id"),
+            total_gross=Sum("gross_amount"),
+            total_provider_amount=Sum("provider_amount"),
+            total_ihealth_commission=Sum("ihealth_commission_amount"),
+        )
+
+        total_orders = totals["total_orders"] or 0
+        total_gross = totals["total_gross"] or Decimal("0.00")
+        total_provider_amount = totals["total_provider_amount"] or Decimal("0.00")
+        total_ihealth_commission = totals["total_ihealth_commission"] or Decimal("0.00")
+        average_ticket = (
+            Decimal("0.00") if total_orders == 0 else (total_gross / Decimal(total_orders)).quantize(Decimal("0.01"))
+        )
+
+        output = PartnerDashboardSummarySerializer(
+            {
+                "start_date": parse_date(request.query_params.get("start_date", "")),
+                "end_date": parse_date(request.query_params.get("end_date", "")),
+                "total_orders": total_orders,
+                "total_gross": total_gross,
+                "total_provider_amount": total_provider_amount,
+                "total_ihealth_commission": total_ihealth_commission,
+                "average_ticket": average_ticket,
+            }
+        )
+        return Response(output.data, status=status.HTTP_200_OK)
 
 
 class ProductVariationViewSet(viewsets.ModelViewSet):
