@@ -1,9 +1,15 @@
+import hashlib
+import hmac
+
+from django.conf import settings
+from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounts.permissions import HasAnyProfile
 from products.audit import log_prescription_access
@@ -11,6 +17,8 @@ from products.models import (
     Category,
     MedicalPrescription,
     Order,
+    PaymentTransaction,
+    PaymentWebhookEvent,
     PrescriptionAccessAudit,
     Product,
     ProductDosage,
@@ -294,7 +302,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         queryset = Order.objects.all()
         if not user.is_staff:
             queryset = queryset.filter(user=user)
-        return queryset.select_related("user")
+        return queryset.select_related("user", "provider", "payment")
 
     def get_serializer_class(self):
         """Usa serializer apropriado por ação."""
@@ -495,6 +503,127 @@ class MedicalPrescriptionViewSet(viewsets.ModelViewSet):
 
         serializer = PrescriptionAccessAuditSerializer(logs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PaymentGatewayWebhookAPIView(APIView):
+    """Webhook para atualizações de pagamento enviadas pelo gateway."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @staticmethod
+    def _normalize_payment_method(value: str | None) -> str:
+        normalized = (value or "").strip().upper()
+        if normalized in {
+            PaymentTransaction.Method.PIX,
+            PaymentTransaction.Method.BOLETO,
+            PaymentTransaction.Method.CREDIT_CARD,
+            PaymentTransaction.Method.DEBIT_CARD,
+        }:
+            return normalized
+        return PaymentTransaction.Method.UNKNOWN
+
+    def _is_valid_signature(self, request) -> bool:
+        secret = settings.PAYMENT_WEBHOOK_SECRET
+        signature = request.headers.get("X-Webhook-Signature", "")
+        digest = hmac.new(secret.encode("utf-8"), request.body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(digest, signature)
+
+    @transaction.atomic
+    def post(self, request):
+        if not self._is_valid_signature(request):
+            return Response({"detail": "Assinatura inválida."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        payload = request.data if isinstance(request.data, dict) else {}
+        event_name = str(payload.get("event") or payload.get("type") or "").strip().lower()
+        event_id = str(payload.get("event_id") or payload.get("id") or "").strip()
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+
+        if not event_name or not event_id:
+            return Response(
+                {"detail": "Payload inválido. Campos event/event_id são obrigatórios."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        order_id = data.get("order_id")
+        gateway_reference = data.get("gateway_reference")
+
+        order = None
+        if order_id:
+            order = Order.objects.select_for_update().filter(id=order_id).first()
+        if order is None and gateway_reference:
+            order = Order.objects.select_for_update().filter(gateway_reference=gateway_reference).first()
+
+        if order is None:
+            return Response(
+                {
+                    "received": True,
+                    "processed": False,
+                    "reason": "order_not_found",
+                    "event_id": event_id,
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        gateway_transaction_id = str(data.get("transaction_id") or data.get("payment_id") or f"order-{order.id}")
+        payment, _created = PaymentTransaction.objects.select_for_update().get_or_create(
+            order=order,
+            defaults={
+                "gateway": str(data.get("gateway") or "sandbox_gateway"),
+                "gateway_transaction_id": gateway_transaction_id,
+                "payment_method": self._normalize_payment_method(data.get("payment_method")),
+            },
+        )
+
+        if payment.gateway_transaction_id != gateway_transaction_id:
+            payment.gateway_transaction_id = gateway_transaction_id
+
+        if not payment.is_split_calculated:
+            payment.apply_split()
+
+        event, created_event = PaymentWebhookEvent.objects.get_or_create(
+            event_id=event_id,
+            defaults={
+                "payment": payment,
+                "event_name": event_name,
+                "payload": payload,
+            },
+        )
+        if not created_event:
+            return Response(
+                {
+                    "received": True,
+                    "processed": False,
+                    "duplicate": True,
+                    "event_id": event_id,
+                    "order_status": payment.order.status,
+                    "payment_status": payment.gateway_status,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        payment.payment_method = self._normalize_payment_method(data.get("payment_method"))
+        payment.apply_gateway_event(event_name=event_name, payload=payload)
+        payment.save()
+        payment.order.save(update_fields=["status", "updated_at"])
+
+        return Response(
+            {
+                "received": True,
+                "processed": True,
+                "event_id": event.event_id,
+                "order_id": payment.order_id,
+                "order_status": payment.order.status,
+                "payment_status": payment.gateway_status,
+                "split": {
+                    "gross_amount": str(payment.gross_amount),
+                    "provider_amount": str(payment.provider_amount),
+                    "ihealth_commission_amount": str(payment.ihealth_commission_amount),
+                    "commission_rate_applied": str(payment.commission_rate_applied),
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class PrescriptionAccessAuditViewSet(viewsets.ReadOnlyModelViewSet):

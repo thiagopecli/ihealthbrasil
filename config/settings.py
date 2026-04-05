@@ -138,3 +138,9 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": False,
     "SIGNING_KEY": JWT_SIGNING_KEY,
 }
+
+PAYMENT_WEBHOOK_SECRET = os.getenv("PAYMENT_WEBHOOK_SECRET", "dev-webhook-secret-change-me")
+PAYMENT_DEFAULT_COMMISSION_RATE = os.getenv("PAYMENT_DEFAULT_COMMISSION_RATE", "12.00")
+
+if ENVIRONMENT == "production" and PAYMENT_WEBHOOK_SECRET == "dev-webhook-secret-change-me":
+    raise ImproperlyConfigured("PAYMENT_WEBHOOK_SECRET precisa ser definido em producao.")

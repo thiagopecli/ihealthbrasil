@@ -1,6 +1,10 @@
+import hashlib
+import hmac
+import json
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -15,6 +19,8 @@ from products.models import (
     ProductVariation,
     SalesRestriction,
 )
+
+WEBHOOK_TEST_SECRET = "webhook-test-secret"
 
 
 class ProductsAPITests(APITestCase):
@@ -419,3 +425,172 @@ class MedicalPrescriptionAPITests(APITestCase):
         self.client.force_authenticate(user=self.admin)
         response = self.client.get("/api/prescription-audit/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+@override_settings(PAYMENT_WEBHOOK_SECRET=WEBHOOK_TEST_SECRET)  # nosec B106
+class PaymentWebhookAPITests(APITestCase):
+    """Testes para split de pagamento e webhook de atualização de status."""
+
+    webhook_url = "/api/payments/webhooks/gateway/"
+
+    def setUp(self):
+        user_model = get_user_model()
+        self.patient = user_model.objects.create_user(
+            username="payment_patient",
+            email="payment_patient@example.com",
+            profile=user_model.Profile.PATIENT,
+        )
+        self.provider = user_model.objects.create_user(
+            username="payment_provider",
+            email="payment_provider@example.com",
+            profile=user_model.Profile.PROVIDER,
+        )
+
+        self.order = Order.objects.create(
+            user=self.patient,
+            provider=self.provider,
+            total_price=Decimal("100.00"),
+            commission_rate=Decimal("15.00"),
+            gateway_reference="ORD-100",
+        )
+
+    @staticmethod
+    def _signed_request_payload(payload: dict, secret: str):
+        raw_payload = json.dumps(payload, separators=(",", ":"))
+        signature = hmac.new(secret.encode("utf-8"), raw_payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        return raw_payload, signature
+
+    def test_webhook_pagamento_aprovado_calcula_split_e_muda_pedido_para_pago(self):
+        payload = {
+            "event_id": "evt-approved-1",
+            "event": "payment.approved",
+            "data": {
+                "order_id": self.order.id,
+                "transaction_id": "tx-approved-1",
+                "payment_method": "PIX",
+                "gateway": "asaas",
+            },
+        }
+        raw_payload, signature = self._signed_request_payload(payload, WEBHOOK_TEST_SECRET)
+
+        response = self.client.post(
+            self.webhook_url,
+            data=raw_payload,
+            content_type="application/json",
+            HTTP_X_WEBHOOK_SIGNATURE=signature,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["processed"])
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.PAID)
+
+        payment = self.order.payment
+        self.assertEqual(payment.gateway_status, "APPROVED")
+        self.assertEqual(payment.gross_amount, Decimal("100.00"))
+        self.assertEqual(payment.provider_amount, Decimal("85.00"))
+        self.assertEqual(payment.ihealth_commission_amount, Decimal("15.00"))
+        self.assertTrue(payment.is_split_calculated)
+
+    def test_webhook_boleto_vencido_cancela_pedido(self):
+        payload = {
+            "event_id": "evt-expired-1",
+            "event": "boleto.expired",
+            "data": {
+                "order_id": self.order.id,
+                "transaction_id": "tx-expired-1",
+                "payment_method": "BOLETO",
+            },
+        }
+        raw_payload, signature = self._signed_request_payload(payload, WEBHOOK_TEST_SECRET)
+
+        response = self.client.post(
+            self.webhook_url,
+            data=raw_payload,
+            content_type="application/json",
+            HTTP_X_WEBHOOK_SIGNATURE=signature,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.CANCELLED)
+        self.assertEqual(self.order.payment.gateway_status, "EXPIRED")
+
+    def test_webhook_evento_duplicado_e_idempotente(self):
+        payload = {
+            "event_id": "evt-duplicate-1",
+            "event": "payment.approved",
+            "data": {
+                "order_id": self.order.id,
+                "transaction_id": "tx-duplicate-1",
+                "payment_method": "PIX",
+            },
+        }
+        raw_payload, signature = self._signed_request_payload(payload, WEBHOOK_TEST_SECRET)
+
+        first_response = self.client.post(
+            self.webhook_url,
+            data=raw_payload,
+            content_type="application/json",
+            HTTP_X_WEBHOOK_SIGNATURE=signature,
+        )
+        second_response = self.client.post(
+            self.webhook_url,
+            data=raw_payload,
+            content_type="application/json",
+            HTTP_X_WEBHOOK_SIGNATURE=signature,
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(second_response.data["processed"])
+        self.assertTrue(second_response.data["duplicate"])
+
+    def test_webhook_assinatura_invalida_retorna_401(self):
+        payload = {
+            "event_id": "evt-invalid-signature",
+            "event": "payment.approved",
+            "data": {"order_id": self.order.id, "transaction_id": "tx-invalid-signature"},
+        }
+        raw_payload, _signature = self._signed_request_payload(payload, WEBHOOK_TEST_SECRET)
+
+        response = self.client.post(
+            self.webhook_url,
+            data=raw_payload,
+            content_type="application/json",
+            HTTP_X_WEBHOOK_SIGNATURE="assinatura-errada",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_pagamento_aprovado_com_receita_pendente_vai_para_analise_medica(self):
+        prescription = MedicalPrescription.objects.create(
+            order=self.order,
+            prescription_type=MedicalPrescription.Type.DIGITAL_PHOTO,
+            status=MedicalPrescription.Status.SUBMITTED,
+        )
+        prescription.file.name = "prescription_pending.pdf"
+        prescription.save()
+
+        payload = {
+            "event_id": "evt-approved-with-rx",
+            "event": "payment.approved",
+            "data": {
+                "order_id": self.order.id,
+                "transaction_id": "tx-approved-with-rx",
+                "payment_method": "PIX",
+            },
+        }
+        raw_payload, signature = self._signed_request_payload(payload, WEBHOOK_TEST_SECRET)
+
+        response = self.client.post(
+            self.webhook_url,
+            data=raw_payload,
+            content_type="application/json",
+            HTTP_X_WEBHOOK_SIGNATURE=signature,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.UNDER_MEDICAL_REVIEW)

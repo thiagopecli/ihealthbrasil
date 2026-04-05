@@ -5,6 +5,7 @@ from products.views import (
     CategoryViewSet,
     MedicalPrescriptionViewSet,
     OrderViewSet,
+    PaymentGatewayWebhookAPIView,
     PrescriptionAccessAuditViewSet,
     ProductDosageViewSet,
     ProductPackageInsertViewSet,
@@ -27,5 +28,6 @@ router.register(r"prescription-audit", PrescriptionAccessAuditViewSet, basename=
 app_name = "products"
 
 urlpatterns = [
+    path("payments/webhooks/gateway/", PaymentGatewayWebhookAPIView.as_view(), name="payment-webhook-gateway"),
     path("", include(router.urls)),
 ]
