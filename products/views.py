@@ -5,9 +5,11 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Prefetch, Sum
 from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -21,6 +23,7 @@ from products.models import (
     Category,
     MedicalPrescription,
     Order,
+    OrderItem,
     PaymentConnectedAccount,
     PaymentCustomer,
     PaymentIntent,
@@ -412,10 +415,23 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Pacientes veem apenas seus pedidos. Admins veem todos."""
         user = self.request.user
-        queryset = Order.objects.all()
+        queryset = Order.objects.select_related("user", "provider", "payment")
+
+        if self.action == "retrieve":
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "items",
+                    queryset=OrderItem.objects.select_related(
+                        "product__category",
+                        "product_variation",
+                        "product_variation__product",
+                    ),
+                )
+            )
+
         if not user.is_staff:
             queryset = queryset.filter(user=user)
-        return queryset.select_related("user", "provider", "payment")
+        return queryset
 
     def get_serializer_class(self):
         """Usa serializer apropriado por ação."""
@@ -510,6 +526,42 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="payment-intent", permission_classes=[IsAuthenticated])
+    @extend_schema(
+        summary="Criar intenção de pagamento para o pedido",
+        description="Gera o payment intent no gateway e retorna dados necessários para o checkout.",
+        request=PaymentIntentCreateSerializer,
+        responses={201: PaymentIntentSerializer},
+        examples=[
+            OpenApiExample(
+                "Payload mínimo",
+                value={"currency": "brl"},
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Payload com fornecedor",
+                value={"provider_user_id": 42, "currency": "brl"},
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Resposta de sucesso",
+                value={
+                    "id": 1,
+                    "order": 99,
+                    "gateway": "mock",
+                    "gateway_payment_intent_id": "pi_mock_123",
+                    "gateway_checkout_session_id": "cs_mock_123",
+                    "client_secret": "secret_mock_123",
+                    "checkout_url": "https://checkout.example.com/session/cs_mock_123",
+                    "amount": "199.90",
+                    "currency": "brl",
+                    "status": "requires_payment_method",
+                    "metadata": {"provider_user_id": 42},
+                    "created_at": "2026-04-05T14:00:00Z",
+                },
+                response_only=True,
+            ),
+        ],
+    )
     def create_payment_intent(self, request, pk=None):
         """
         Cria intenção de pagamento no gateway para o pedido.
@@ -616,10 +668,11 @@ class MedicalPrescriptionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Pacientes veem suas receitas. Admins veem todas."""
         user = self.request.user
-        queryset = MedicalPrescription.objects.all()
+        queryset = MedicalPrescription.objects.select_related("order", "order__user")
         if not user.is_staff:
             queryset = queryset.filter(order__user=user)
-        return queryset.select_related("order", "order__user").prefetch_related("access_logs")
+        audit_logs_queryset = PrescriptionAccessAudit.objects.select_related("user").order_by("-created_at")
+        return queryset.prefetch_related(Prefetch("access_logs", queryset=audit_logs_queryset))
 
     def get_serializer_class(self):
         """Serializer apropriado por ação."""
@@ -700,7 +753,7 @@ class MedicalPrescriptionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        logs = prescription.access_logs.all().order_by("-created_at")
+        logs = prescription.access_logs.all()
         page = self.paginate_queryset(logs)
         if page is not None:
             serializer = PrescriptionAccessAuditSerializer(page, many=True)
@@ -734,6 +787,51 @@ class PaymentGatewayWebhookAPIView(APIView):
         digest = hmac.new(secret.encode("utf-8"), request.body, hashlib.sha256).hexdigest()
         return hmac.compare_digest(digest, signature)
 
+    @extend_schema(
+        summary="Receber evento de webhook do gateway de pagamento",
+        description="Valida assinatura HMAC, processa evento com idempotência e atualiza status do pedido.",
+        request=OpenApiTypes.OBJECT,
+        responses={
+            200: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Evento recebido/processado."),
+            400: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Payload inválido."),
+            401: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Assinatura inválida."),
+            202: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Pedido não encontrado."),
+        },
+        examples=[
+            OpenApiExample(
+                "Evento aprovado",
+                value={
+                    "event_id": "evt-approved-1",
+                    "event": "payment.approved",
+                    "data": {
+                        "order_id": 100,
+                        "transaction_id": "tx-approved-1",
+                        "payment_method": "PIX",
+                        "gateway": "asaas",
+                    },
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Resposta processada",
+                value={
+                    "received": True,
+                    "processed": True,
+                    "event_id": "evt-approved-1",
+                    "order_id": 100,
+                    "order_status": "PAID",
+                    "payment_status": "APPROVED",
+                    "split": {
+                        "gross_amount": "100.00",
+                        "provider_amount": "88.00",
+                        "ihealth_commission_amount": "12.00",
+                        "commission_rate_applied": "12.00",
+                    },
+                },
+                response_only=True,
+            ),
+        ],
+    )
     @transaction.atomic
     def post(self, request):
         if not self._is_valid_signature(request):

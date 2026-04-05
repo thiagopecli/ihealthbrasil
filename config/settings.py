@@ -22,6 +22,7 @@ if ENVIRONMENT == "production" and len(JWT_SIGNING_KEY) < 32:
     raise ImproperlyConfigured("JWT_SIGNING_KEY precisa ter ao menos 32 caracteres em producao.")
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()]
 
 INSTALLED_APPS = [
     "accounts",
@@ -144,6 +145,18 @@ PAYMENT_DEFAULT_COMMISSION_RATE = os.getenv("PAYMENT_DEFAULT_COMMISSION_RATE", "
 
 if ENVIRONMENT == "production" and PAYMENT_WEBHOOK_SECRET == "dev-webhook-secret-change-me":
     raise ImproperlyConfigured("PAYMENT_WEBHOOK_SECRET precisa ser definido em producao.")
+
+if ENVIRONMENT == "production":
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "True").lower() == "true"
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_REFERRER_POLICY = "same-origin"
 
 # Pagamentos (Sprint 6)
 PAYMENT_GATEWAY_PROVIDER = os.getenv("PAYMENT_GATEWAY_PROVIDER", "mock").lower()
