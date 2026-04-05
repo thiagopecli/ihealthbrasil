@@ -1,6 +1,17 @@
 from rest_framework import serializers
 
-from products.models import Category, Product, ProductDosage, ProductPackageInsert, ProductVariation, SalesRestriction
+from products.models import (
+    Category,
+    MedicalPrescription,
+    Order,
+    OrderItem,
+    PrescriptionAccessAudit,
+    Product,
+    ProductDosage,
+    ProductPackageInsert,
+    ProductVariation,
+    SalesRestriction,
+)
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -160,3 +171,179 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             "category",
             "is_active",
         ]
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    """Serializer para itens do pedido."""
+
+    product = ProductListSerializer(read_only=True)
+    product_variation = ProductVariationSerializer(read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            "id",
+            "order",
+            "product",
+            "product_variation",
+            "quantity",
+            "unit_price",
+            "total_price",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["order", "unit_price", "total_price", "created_at", "updated_at"]
+
+
+class OrderListSerializer(serializers.ModelSerializer):
+    """Serializer para listar pedidos (resumo)."""
+
+    user = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "user",
+            "status",
+            "total_price",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "user", "total_price", "created_at", "updated_at"]
+
+
+class OrderDetailSerializer(serializers.ModelSerializer):
+    """Serializer para detalhe pedido com itens."""
+
+    items = OrderItemSerializer(many=True, read_only=True)
+    user = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "user",
+            "status",
+            "items",
+            "total_price",
+            "shipping_address",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "user", "total_price", "created_at", "updated_at"]
+
+
+class PrescriptionAccessAuditSerializer(serializers.ModelSerializer):
+    """Serializer para logs de auditoria de acesso a receitas."""
+
+    user = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = PrescriptionAccessAudit
+        fields = [
+            "id",
+            "prescription",
+            "user",
+            "username_snapshot",
+            "action",
+            "ip_address",
+            "user_agent",
+            "details",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "prescription",
+            "user",
+            "username_snapshot",
+            "ip_address",
+            "user_agent",
+            "details",
+            "created_at",
+        ]
+
+
+class MedicalPrescriptionUploadSerializer(serializers.ModelSerializer):
+    """Serializer para upload de receita médica (paciente)."""
+
+    class Meta:
+        model = MedicalPrescription
+        fields = [
+            "id",
+            "order",
+            "prescription_type",
+            "file",
+            "prescriber_name",
+            "prescription_date",
+        ]
+        read_only_fields = ["id", "file_size", "file_hash", "status", "expires_at"]
+
+    def create(self, validated_data):
+        """Calcula hash e tamanho do arquivo ao criar."""
+        from products.utils import calculate_file_hash, calculate_prescription_expiry
+
+        instance = super().create(validated_data)
+        instance.status = MedicalPrescription.Status.SUBMITTED  # Mudar status ao enviar
+        file_obj = instance.file
+        instance.file_hash = calculate_file_hash(file_obj)
+        instance.file_size = file_obj.size
+        instance.expires_at = calculate_prescription_expiry(instance.validity_days)
+        instance.save()
+        return instance
+
+
+class MedicalPrescriptionDetailSerializer(serializers.ModelSerializer):
+    """Serializer para visualização de receita (incluindo logs de auditoria)."""
+
+    access_logs = PrescriptionAccessAuditSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = MedicalPrescription
+        fields = [
+            "id",
+            "order",
+            "prescription_type",
+            "status",
+            "file",
+            "file_size",
+            "file_hash",
+            "prescriber_name",
+            "prescription_date",
+            "validity_days",
+            "expires_at",
+            "verification_notes",
+            "access_logs",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "file_size",
+            "file_hash",
+            "expires_at",
+            "access_logs",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class MedicalPrescriptionAdminSerializer(serializers.ModelSerializer):
+    """Serializer para admin verificar/rejeitar receitas."""
+
+    class Meta:
+        model = MedicalPrescription
+        fields = [
+            "id",
+            "order",
+            "status",
+            "file",
+            "prescriber_name",
+            "prescription_date",
+            "file_hash",
+            "verification_notes",
+            "expires_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "order", "file", "file_hash", "created_at"]

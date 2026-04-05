@@ -4,7 +4,17 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from products.models import Category, Product, ProductDosage, ProductPackageInsert, ProductVariation, SalesRestriction
+from products.models import (
+    Category,
+    MedicalPrescription,
+    Order,
+    PrescriptionAccessAudit,
+    Product,
+    ProductDosage,
+    ProductPackageInsert,
+    ProductVariation,
+    SalesRestriction,
+)
 
 
 class ProductsAPITests(APITestCase):
@@ -13,7 +23,6 @@ class ProductsAPITests(APITestCase):
         self.user = user_model.objects.create_user(
             username="catalog_user",
             email="catalog_user@example.com",
-            password="StrongPass@123",
             profile=user_model.Profile.PATIENT,
             is_staff=False,
         )
@@ -21,7 +30,6 @@ class ProductsAPITests(APITestCase):
         self.admin = user_model.objects.create_user(
             username="catalog_admin",
             email="catalog_admin@example.com",
-            password="StrongPass@123",
             profile=user_model.Profile.ADMIN,
             is_staff=True,
         )
@@ -179,7 +187,12 @@ class ProductsAPITests(APITestCase):
             ("/api/dosages/", {"strength": "3", "unit": "mg", "is_default": True}),
             (
                 "/api/package-inserts/",
-                {"language": "pt_BR", "title": "Bula Melatonina", "content": "Conteudo", "requires_prescription_note": False},
+                {
+                    "language": "pt_BR",
+                    "title": "Bula Melatonina",
+                    "content": "Conteudo",
+                    "requires_prescription_note": False,
+                },
             ),
             (
                 "/api/sales-restrictions/",
@@ -225,3 +238,184 @@ class ProductsAPITests(APITestCase):
 
         product_response = self.client.post("/api/products/", product_payload, format="json")
         self.assertEqual(product_response.status_code, status.HTTP_201_CREATED)
+
+
+class OrderAPITests(APITestCase):
+    """Testes para gerenciamento de pedidos (Sprint 4/5)."""
+
+    def setUp(self):
+        user_model = get_user_model()
+        self.patient = user_model.objects.create_user(
+            username="patient_user",
+            email="patient@example.com",
+            profile=user_model.Profile.PATIENT,
+        )
+
+        self.admin = user_model.objects.create_user(
+            username="order_admin",
+            email="admin@example.com",
+            profile=user_model.Profile.ADMIN,
+            is_staff=True,
+        )
+
+        self.category = Category.objects.create(name="Medicamentos", description="Diversos")
+        self.product = Product.objects.create(
+            category=self.category,
+            name="Teste Meds",
+            description="Para testes",
+            price=Decimal("50.00"),
+            requires_prescription=False,
+            stock=10,
+            sku="TST-001",
+        )
+
+    def test_patient_can_list_own_orders_only(self):
+        """Paciente vê apenas seus pedidos."""
+        Order.objects.create(user=self.patient, total_price=Decimal("100.00"))
+        Order.objects.create(user=self.admin, total_price=Decimal("200.00"))  # Pedido de outro usuário
+
+        self.client.force_authenticate(user=self.patient)
+        response = self.client.get("/api/orders/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["user"], self.patient.username)
+
+    def test_admin_can_list_all_orders(self):
+        """Admin vê todos os pedidos."""
+        Order.objects.create(user=self.patient, total_price=Decimal("100.00"))
+        Order.objects.create(user=self.admin, total_price=Decimal("200.00"))
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/orders/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_unauthenticated_cannot_access_orders(self):
+        """Acesso não autenticado retorna 401."""
+        response = self.client.get("/api/orders/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class MedicalPrescriptionAPITests(APITestCase):
+    """Testes de upload e auditoria de receitas (Sprint 5)."""
+
+    def setUp(self):
+        from io import BytesIO
+
+        user_model = get_user_model()
+        self.patient = user_model.objects.create_user(
+            username="rx_patient",
+            email="patient_rx@example.com",
+            profile=user_model.Profile.PATIENT,
+        )
+
+        self.admin = user_model.objects.create_user(
+            username="rx_admin",
+            email="admin_rx@example.com",
+            profile=user_model.Profile.ADMIN,
+            is_staff=True,
+        )
+
+        self.category = Category.objects.create(name="Controlados", description="Medicamentos controlados")
+        self.product_rx = Product.objects.create(
+            category=self.category,
+            name="Med Controlado",
+            description="Uso com receita",
+            price=Decimal("150.00"),
+            requires_prescription=True,
+            controlled_substance_class="C2",
+            stock=5,
+            sku="CTR-001",
+        )
+
+        self.order = Order.objects.create(user=self.patient, status=Order.Status.PENDING, total_price=Decimal("150.00"))
+
+        # Criar um arquivo mock para testes
+        self.prescription_file_content = BytesIO(b"PDF prescription data - mock")
+        self.prescription_file_content.name = "prescription.pdf"
+
+    def test_patient_can_upload_prescription(self):
+        """Paciente pode fazer upload de receita para seu pedido."""
+        self.client.force_authenticate(user=self.patient)
+
+        from io import BytesIO
+
+        file_content = BytesIO(b"Mock prescription PDF")
+        file_content.name = "my_prescription.pdf"
+
+        payload = {
+            "order": self.order.id,
+            "prescription_type": "DIGITAL_PHOTO",
+            "file": file_content,
+            "prescriber_name": "Dr. Silva",
+            "prescription_date": "2026-04-01",
+        }
+
+        response = self.client.post("/api/prescriptions/", payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], MedicalPrescription.Status.SUBMITTED)
+
+        # Verificar se log de auditoria foi criado
+        self.assertTrue(PrescriptionAccessAudit.objects.filter(action="UPLOADED").exists())
+
+    def test_prescription_access_audit_log_created_on_download(self):
+        """Log de auditoria é criado quando receita é baixada."""
+        prescription = MedicalPrescription.objects.create(
+            order=self.order,
+            prescription_type="DIGITAL_PHOTO",
+            status=MedicalPrescription.Status.VERIFIED,
+        )
+        prescription.file.name = "prescription.pdf"
+        prescription.save()
+
+        self.client.force_authenticate(user=self.patient)
+        response = self.client.get(f"/api/prescriptions/{prescription.id}/download/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Verificar log criado
+        log = PrescriptionAccessAudit.objects.filter(
+            prescription=prescription, action=PrescriptionAccessAudit.Action.DOWNLOADED
+        ).first()
+        self.assertIsNotNone(log)
+
+    def test_only_admin_can_verify_prescription(self):
+        """Apenas admin pode aprovar receita."""
+        prescription = MedicalPrescription.objects.create(
+            order=self.order,
+            prescription_type="DIGITAL_PHOTO",
+            status=MedicalPrescription.Status.SUBMITTED,
+        )
+        prescription.file.name = "prescription.pdf"
+        prescription.save()
+
+        # Paciente tenta verificar - deve falhar
+        self.client.force_authenticate(user=self.patient)
+        response = self.client.post(
+            f"/api/orders/{self.order.id}/approve_prescription/", {"notes": "Approved"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Admin verifica - deve funcionar
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            f"/api/orders/{self.order.id}/approve_prescription/", {"notes": "Approved by admin"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_prescription_access_logs_endpoint_admin_only(self):
+        """Endpoint de auditoria de receita é apenas para admin."""
+        MedicalPrescription.objects.create(
+            order=self.order,
+            prescription_type="DIGITAL_PHOTO",
+            status=MedicalPrescription.Status.VERIFIED,
+        )
+
+        self.client.force_authenticate(user=self.patient)
+        response = self.client.get("/api/prescription-audit/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/prescription-audit/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
