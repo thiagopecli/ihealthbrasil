@@ -259,17 +259,23 @@ python manage.py createsuperuser
 - expansao de saude/regulatorio (dosagens, bulas, restricoes)
 - endpoints REST para recursos de catalogo
 
-### Sprint 03 (parcial)
+### Sprint 03 (entregue)
 
-- base de i18n habilitada no Django (`USE_I18N`)
-- suporte de idioma em bulas (pt_BR, en_US, es_ES)
-- documentacao e colecoes de API atualizadas
+- i18n funcional na API por `Accept-Language` com `LocaleMiddleware`
+- bulas com resolucao automatica por idioma (pt_BR, en_US, es_ES) e fallback
+- traducao de mensagens principais de validacao para pt/en/es
+- modelo de precificacao multimoeda por pais/moeda (`ProductPrice`)
+- resposta de catalogo com preco contextual (`price`, `price_currency`, `price_country`, `price_is_fallback`)
 
-Pendente para fechar a sprint:
+Headers e query params suportados na resolucao de idioma/moeda:
 
-- i18n funcional na API por `Accept-Language`
-- traducao de mensagens principais
-- modelo de precificacao multimoeda por pais/moeda
+- `Accept-Language` para idioma da resposta e selecao de bula
+- `X-Country` ou `country` para pais de precificacao
+- `X-Currency` ou `currency` para moeda de precificacao
+
+Endpoint novo:
+
+- `GET/POST /api/product-prices/` (admin para escrita)
 
 ### Sprint 04 (parcial)
 

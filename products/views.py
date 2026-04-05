@@ -33,6 +33,7 @@ from products.models import (
     Product,
     ProductDosage,
     ProductPackageInsert,
+    ProductPrice,
     ProductVariation,
     SalesRestriction,
 )
@@ -56,10 +57,12 @@ from products.serializers import (
     ProductDosageSerializer,
     ProductListSerializer,
     ProductPackageInsertSerializer,
+    ProductPriceSerializer,
     ProductVariationSerializer,
     SalesRestrictionSerializer,
 )
 from products.tasks import enqueue_order_status_sms
+from products.utils import get_localized_message, package_insert_language_candidates
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -94,7 +97,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     queryset = (
         Product.objects.filter(is_active=True)
-        .prefetch_related("variations", "dosages", "package_inserts")
+        .prefetch_related("variations", "dosages", "package_inserts", "prices")
         .select_related("category")
     )
     lookup_field = "slug"
@@ -169,6 +172,19 @@ class ProductViewSet(viewsets.ModelViewSet):
         """Retorna bulas de um produto específico."""
         product = self.get_object()
         package_inserts = product.package_inserts.all()
+
+        all_languages = request.query_params.get("all_languages", "false").lower() in ["1", "true", "yes"]
+        explicit_language = request.query_params.get("language")
+        if explicit_language:
+            package_inserts = package_inserts.filter(language=explicit_language)
+        elif not all_languages:
+            preferred_codes = package_insert_language_candidates(request)
+            for code in preferred_codes:
+                selected = package_inserts.filter(language=code).first()
+                if selected:
+                    package_inserts = product.package_inserts.filter(id=selected.id)
+                    break
+
         serializer = ProductPackageInsertSerializer(package_inserts, many=True)
         return Response({"product_slug": slug, "package_inserts": serializer.data})
 
@@ -360,8 +376,40 @@ class ProductPackageInsertViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         product_id = self.request.query_params.get("product")
         product_slug = self.request.query_params.get("product_slug")
+        explicit_language = self.request.query_params.get("language")
+        all_languages = self.request.query_params.get("all_languages", "false").lower() in ["1", "true", "yes"]
+
         if product_id:
             queryset = queryset.filter(product_id=product_id)
+        if product_slug:
+            queryset = queryset.filter(product__slug=product_slug)
+        if explicit_language:
+            queryset = queryset.filter(language=explicit_language)
+        elif not all_languages:
+            preferred_codes = package_insert_language_candidates(self.request)
+            for code in preferred_codes:
+                if queryset.filter(language=code).exists():
+                    queryset = queryset.filter(language=code)
+                    break
+        return queryset
+
+
+class ProductPriceViewSet(viewsets.ModelViewSet):
+    """CRUD de precificacao por pais/moeda."""
+
+    queryset = ProductPrice.objects.select_related("product", "product__category")
+    serializer_class = ProductPriceSerializer
+    permission_classes = [IsAdminOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["product", "country_code", "currency", "is_active"]
+    search_fields = ["product__name", "product__sku", "country_code", "currency"]
+    ordering_fields = ["product", "country_code", "currency", "amount", "created_at"]
+    ordering = ["product", "country_code", "currency"]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        product_slug = self.request.query_params.get("product_slug")
         if product_slug:
             queryset = queryset.filter(product__slug=product_slug)
         return queryset
@@ -456,7 +504,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Verificar se é admin
         if not request.user.is_staff:
             return Response(
-                {"detail": "Apenas admin pode aprovar receitas."},
+                {"detail": get_localized_message(request, "admin_only_action")},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -498,7 +546,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Verificar se é admin
         if not request.user.is_staff:
             return Response(
-                {"detail": "Apenas admin pode rejeitar receitas."},
+                {"detail": get_localized_message(request, "admin_only_action")},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

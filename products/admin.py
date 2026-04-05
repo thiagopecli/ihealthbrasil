@@ -6,6 +6,7 @@ from products.models import (
     Product,
     ProductDosage,
     ProductPackageInsert,
+    ProductPrice,
     ProductVariation,
     SalesRestriction,
 )
@@ -40,6 +41,14 @@ class SalesRestrictionInline(admin.TabularInline):
 
     model = SalesRestriction
     fields = ["restriction_type", "description", "is_active"]
+    extra = 1
+
+
+class ProductPriceInline(admin.TabularInline):
+    """Inline para precificacao multimoeda por pais."""
+
+    model = ProductPrice
+    fields = ["country_code", "currency", "amount", "is_active"]
     extra = 1
 
 
@@ -78,6 +87,7 @@ class ProductAdmin(admin.ModelAdmin):
         ProductDosageInline,
         ProductPackageInsertInline,
         SalesRestrictionInline,
+        ProductPriceInline,
     ]
     fieldsets = (
         ("Informações Básicas", {"fields": ("name", "slug", "category", "description")}),
@@ -175,6 +185,15 @@ class SalesRestrictionAdmin(admin.ModelAdmin):
     search_fields = ["product__name", "description", "detail"]
     readonly_fields = ["created_at", "updated_at"]
     ordering = ["product", "restriction_type"]
+
+
+@admin.register(ProductPrice)
+class ProductPriceAdmin(admin.ModelAdmin):
+    list_display = ["product", "country_code", "currency", "amount", "is_active", "created_at"]
+    list_filter = ["country_code", "currency", "is_active", "created_at"]
+    search_fields = ["product__name", "product__sku", "country_code", "currency"]
+    readonly_fields = ["created_at", "updated_at"]
+    ordering = ["product", "country_code", "currency"]
 
 
 @admin.register(ExternalNotification)

@@ -22,6 +22,7 @@ from products.models import (
     Product,
     ProductDosage,
     ProductPackageInsert,
+    ProductPrice,
     ProductVariation,
     SalesRestriction,
 )
@@ -102,6 +103,24 @@ class ProductsAPITests(APITestCase):
             content="Conteúdo da bula",
             requires_prescription_note=False,
         )
+        ProductPackageInsert.objects.create(
+            product=self.product,
+            language="en_US",
+            title="Dipyrone Package Insert",
+            content="Package insert content",
+            requires_prescription_note=False,
+        )
+        ProductPackageInsert.objects.create(
+            product=self.product,
+            language="es_ES",
+            title="Prospecto Dipirona",
+            content="Contenido del prospecto",
+            requires_prescription_note=False,
+        )
+
+        ProductPrice.objects.create(product=self.product, country_code="BR", currency="BRL", amount=Decimal("10.90"))
+        ProductPrice.objects.create(product=self.product, country_code="US", currency="USD", amount=Decimal("2.10"))
+        ProductPrice.objects.create(product=self.product, country_code="ES", currency="EUR", amount=Decimal("1.95"))
 
         SalesRestriction.objects.create(
             product=self.product,
@@ -153,10 +172,62 @@ class ProductsAPITests(APITestCase):
         response = self.client.get(f"/api/products/{self.product.slug}/package_inserts/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["package_inserts"]), 1)
+        self.assertEqual(response.data["package_inserts"][0]["language"], "pt_BR")
 
         response = self.client.get(f"/api/products/{self.product.slug}/restrictions/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["restrictions"]), 1)
+
+    def test_package_inserts_uses_accept_language_with_fallback(self):
+        response = self.client.get(
+            f"/api/products/{self.product.slug}/package_inserts/",
+            HTTP_ACCEPT_LANGUAGE="en-US,en;q=0.9",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["package_inserts"]), 1)
+        self.assertEqual(response.data["package_inserts"][0]["language"], "en_US")
+
+        response = self.client.get(
+            f"/api/products/{self.product.slug}/package_inserts/",
+            HTTP_ACCEPT_LANGUAGE="de-DE,de;q=0.9",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["package_inserts"][0]["language"], "pt_BR")
+
+    def test_catalog_price_changes_by_country_and_currency(self):
+        response = self.client.get(
+            "/api/products/",
+            HTTP_X_COUNTRY="US",
+            HTTP_X_CURRENCY="USD",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        target_product = next(item for item in response.data["results"] if item["slug"] == self.product.slug)
+        self.assertEqual(target_product["price_currency"], "USD")
+        self.assertEqual(target_product["price_country"], "US")
+
+        response_fallback = self.client.get(
+            "/api/products/",
+            HTTP_X_COUNTRY="DE",
+            HTTP_X_CURRENCY="EUR",
+        )
+        self.assertEqual(response_fallback.status_code, status.HTTP_200_OK)
+        fallback_product = next(item for item in response_fallback.data["results"] if item["slug"] == self.product.slug)
+        self.assertEqual(fallback_product["price_currency"], "EUR")
+        self.assertEqual(fallback_product["price_is_fallback"], False)
+
+    def test_product_detail_returns_localized_insert_and_price(self):
+        response = self.client.get(
+            f"/api/products/{self.product.slug}/",
+            HTTP_ACCEPT_LANGUAGE="es-ES,es;q=0.9",
+            HTTP_X_COUNTRY="ES",
+            HTTP_X_CURRENCY="EUR",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["price_currency"], "EUR")
+        self.assertEqual(response.data["price_country"], "ES")
+        self.assertEqual(len(response.data["package_inserts"]), 1)
+        self.assertEqual(response.data["package_inserts"][0]["language"], "es_ES")
 
     def test_variations_dosages_package_inserts_and_restrictions_filter_by_product_slug(self):
         variation_response = self.client.get(f"/api/variations/?product_slug={self.product.slug}")
@@ -502,6 +573,20 @@ class OrderPaymentIntentAPITests(APITestCase):
 
         response = self.client.post(f"/api/orders/{other_order.id}/payment-intent/", {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_invalid_currency_message_is_localized(self):
+        self.client.force_authenticate(user=self.patient)
+
+        response = self.client.post(
+            f"/api/orders/{self.order.id}/payment-intent/",
+            {"currency": "1$2"},
+            format="json",
+            HTTP_ACCEPT_LANGUAGE="en-US,en;q=0.9",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("currency", response.data)
+        self.assertIn("Currency must contain letters only", response.data["currency"][0])
 
 
 @override_settings(PAYMENT_WEBHOOK_SECRET=WEBHOOK_TEST_SECRET, CELERY_TASK_ALWAYS_EAGER=True)  # nosec B106

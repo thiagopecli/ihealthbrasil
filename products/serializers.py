@@ -11,8 +11,16 @@ from products.models import (
     Product,
     ProductDosage,
     ProductPackageInsert,
+    ProductPrice,
     ProductVariation,
     SalesRestriction,
+)
+from products.utils import (
+    get_localized_message,
+    normalize_country_code,
+    normalize_currency_code,
+    package_insert_language_candidates,
+    resolve_product_display_price,
 )
 
 
@@ -102,6 +110,26 @@ class ProductListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listar produtos."""
 
     category_name = serializers.CharField(source="category.name", read_only=True)
+    price = serializers.SerializerMethodField()
+    price_currency = serializers.SerializerMethodField()
+    price_country = serializers.SerializerMethodField()
+    price_is_fallback = serializers.SerializerMethodField()
+
+    def _resolved_price(self, obj: Product) -> dict:
+        request = self.context.get("request")
+        return resolve_product_display_price(obj, request)
+
+    def get_price(self, obj: Product):
+        return self._resolved_price(obj)["amount"]
+
+    def get_price_currency(self, obj: Product) -> str:
+        return self._resolved_price(obj)["currency"]
+
+    def get_price_country(self, obj: Product) -> str:
+        return self._resolved_price(obj)["country"]
+
+    def get_price_is_fallback(self, obj: Product) -> bool:
+        return self._resolved_price(obj)["is_fallback"]
 
     class Meta:
         model = Product
@@ -110,6 +138,9 @@ class ProductListSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "price",
+            "price_currency",
+            "price_country",
+            "price_is_fallback",
             "requires_prescription",
             "stock",
             "is_active",
@@ -122,10 +153,48 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     """Serializer com detalhes completos do produto."""
 
     category = CategorySerializer(read_only=True)
+    price = serializers.SerializerMethodField()
+    price_currency = serializers.SerializerMethodField()
+    price_country = serializers.SerializerMethodField()
+    price_is_fallback = serializers.SerializerMethodField()
     variations = ProductVariationSerializer(many=True, read_only=True)
     dosages = ProductDosageSerializer(many=True, read_only=True)
-    package_inserts = ProductPackageInsertSerializer(many=True, read_only=True)
+    package_inserts = serializers.SerializerMethodField()
     sales_restrictions = SalesRestrictionSerializer(many=True, read_only=True)
+
+    def _resolved_price(self, obj: Product) -> dict:
+        request = self.context.get("request")
+        return resolve_product_display_price(obj, request)
+
+    def get_price(self, obj: Product):
+        return self._resolved_price(obj)["amount"]
+
+    def get_price_currency(self, obj: Product) -> str:
+        return self._resolved_price(obj)["currency"]
+
+    def get_price_country(self, obj: Product) -> str:
+        return self._resolved_price(obj)["country"]
+
+    def get_price_is_fallback(self, obj: Product) -> bool:
+        return self._resolved_price(obj)["is_fallback"]
+
+    def get_package_inserts(self, obj: Product) -> list[dict]:
+        request = self.context.get("request")
+        inserts = list(obj.package_inserts.all())
+        if not inserts:
+            return []
+
+        preferred_codes = package_insert_language_candidates(request)
+        selected = None
+        for code in preferred_codes:
+            selected = next((item for item in inserts if item.language == code), None)
+            if selected:
+                break
+
+        if not selected:
+            selected = inserts[0]
+        serialized = ProductPackageInsertSerializer(selected, context=self.context)
+        return [serialized.data]
 
     class Meta:
         model = Product
@@ -135,6 +204,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "price",
+            "price_currency",
+            "price_country",
+            "price_is_fallback",
             "requires_prescription",
             "active_ingredient",
             "controlled_substance_class",
@@ -203,6 +275,36 @@ class PartnerProductSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "slug", "provider", "provider_username", "created_at", "updated_at"]
+
+
+class ProductPriceSerializer(serializers.ModelSerializer):
+    """Serializer de precificacao por pais/moeda."""
+
+    class Meta:
+        model = ProductPrice
+        fields = [
+            "id",
+            "product",
+            "country_code",
+            "currency",
+            "amount",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+    def validate_country_code(self, value: str) -> str:
+        normalized = normalize_country_code(value)
+        if len(normalized) != 2 or not normalized.isalpha():
+            raise serializers.ValidationError(get_localized_message(self.context.get("request"), "invalid_country"))
+        return normalized
+
+    def validate_currency(self, value: str) -> str:
+        normalized = normalize_currency_code(value)
+        if len(normalized) != 3 or not normalized.isalpha():
+            raise serializers.ValidationError(get_localized_message(self.context.get("request"), "invalid_currency"))
+        return normalized
 
 
 class PartnerSplitStatementSerializer(serializers.ModelSerializer):
@@ -348,8 +450,8 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
 
     def validate_currency(self, value: str) -> str:
         if not value.isalpha():
-            raise serializers.ValidationError("Moeda deve conter apenas letras (ex.: brl, usd).")
-        return value.lower()
+            raise serializers.ValidationError(get_localized_message(self.context.get("request"), "invalid_currency"))
+        return normalize_currency_code(value).lower()
 
 
 class PaymentIntentSerializer(serializers.ModelSerializer):
