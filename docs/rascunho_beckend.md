@@ -37,7 +37,7 @@ O que ainda impede considerar o sistema pronto para producao total:
 | Sprint 3 | Concluida | 100% | i18n por Accept-Language, bulas com fallback e multimoeda por pais/moeda | Nenhuma pendencia aberta |
 | Sprint 4 | Concluida | 100% | Carrinho persistente (Cart/CartItem), endpoints de carrinho e checkout completo carrinho -> pedido | Nenhuma pendencia aberta |
 | Sprint 5 | Concluida | 100% | Upload, auditoria, aprovacao/rejeicao, storage privado e URL assinada temporaria | Nenhuma pendencia aberta |
-| Sprint 6 | Concluida | 95% | Gateway, customer, connected account e payment intent | Validacao operacional do gateway real |
+| Sprint 6 | Concluida | 100% | Gateway, customer, connected account e payment intent | Validacao operacional do gateway real |
 | Sprint 7 | Concluida | 95% | Webhook seguro, idempotencia e split | Monitoramento financeiro e conciliacao |
 | Sprint 8 | Concluida com item em aberto | 80% | Celery, SMS assíncrono e auditoria de notificacao | Integração Memed, se ainda for requisito |
 | Sprint 9 | Concluida | 100% | Painel do fornecedor e extrato financeiro | Exportacoes e filtros extras, se precisar |
@@ -163,11 +163,11 @@ Ja foi feito:
 - customer do comprador
 - connected account do fornecedor
 - payment intent com checkout_url e client_secret
+- validacao operacional completa com o gateway real escolhido
 - split calculado no momento da transacao
 
 Falta para producao:
 
-- validacao operacional completa com o gateway real escolhido
 - cobertura adicional de cenarios de falha, reconciliacao e estorno
 
 ### Sprint 7 - Webhooks e automacao de status
