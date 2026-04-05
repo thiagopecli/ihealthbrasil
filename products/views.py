@@ -2,6 +2,7 @@ import hashlib
 import hmac
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
@@ -17,6 +18,9 @@ from products.models import (
     Category,
     MedicalPrescription,
     Order,
+    PaymentConnectedAccount,
+    PaymentCustomer,
+    PaymentIntent,
     PaymentTransaction,
     PaymentWebhookEvent,
     PrescriptionAccessAudit,
@@ -26,6 +30,7 @@ from products.models import (
     ProductVariation,
     SalesRestriction,
 )
+from products.payments import PaymentGatewayError, get_payment_gateway
 from products.permissions import IsAdminOrReadOnly
 from products.serializers import (
     CategorySerializer,
@@ -34,6 +39,8 @@ from products.serializers import (
     MedicalPrescriptionUploadSerializer,
     OrderDetailSerializer,
     OrderListSerializer,
+    PaymentIntentCreateSerializer,
+    PaymentIntentSerializer,
     PrescriptionAccessAuditSerializer,
     ProductCreateUpdateSerializer,
     ProductDetailSerializer,
@@ -308,6 +315,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Usa serializer apropriado por ação."""
         if self.action == "retrieve":
             return OrderDetailSerializer
+        if self.action == "create_payment_intent":
+            return PaymentIntentCreateSerializer
         return OrderListSerializer
 
     def get_permissions(self):
@@ -393,6 +402,96 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         serializer = MedicalPrescriptionDetailSerializer(prescription)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="payment-intent", permission_classes=[IsAuthenticated])
+    def create_payment_intent(self, request, pk=None):
+        """
+        Cria intenção de pagamento no gateway para o pedido.
+        POST /orders/{id}/payment-intent/
+        """
+        order = self.get_object()
+        if order.total_price <= 0:
+            return Response(
+                {"detail": "Pedido sem valor total para pagamento."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        provider_user = None
+        provider_user_id = serializer.validated_data.get("provider_user_id")
+        if provider_user_id:
+            user_model = get_user_model()
+            provider_user = user_model.objects.filter(id=provider_user_id, is_active=True).first()
+            if not provider_user:
+                return Response(
+                    {"detail": "Fornecedor informado não foi encontrado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if provider_user.profile not in [user_model.Profile.PROVIDER, user_model.Profile.ADMIN]:
+                return Response(
+                    {"detail": "Usuário informado não possui perfil de fornecedor/admin."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        try:
+            gateway = get_payment_gateway()
+
+            customer_external_id = gateway.get_or_create_customer_external_id(order.user)
+            customer, _ = PaymentCustomer.objects.update_or_create(
+                user=order.user,
+                gateway=gateway.name,
+                defaults={"external_customer_id": customer_external_id},
+            )
+
+            connected_account = None
+            connected_account_external_id = None
+            if provider_user:
+                connected_account_external_id = gateway.get_or_create_connected_account_external_id(provider_user)
+                connected_account, _ = PaymentConnectedAccount.objects.update_or_create(
+                    user=provider_user,
+                    gateway=gateway.name,
+                    defaults={
+                        "external_account_id": connected_account_external_id,
+                        "onboarding_complete": True,
+                    },
+                )
+
+            payment_result = gateway.create_payment_intent(
+                order_id=order.id,
+                amount=order.total_price,
+                currency=serializer.validated_data.get("currency", "brl"),
+                customer_external_id=customer_external_id,
+                connected_account_external_id=connected_account_external_id,
+            )
+
+            payment_intent = PaymentIntent.objects.create(
+                order=order,
+                gateway=gateway.name,
+                customer=customer,
+                connected_account=connected_account,
+                gateway_payment_intent_id=payment_result.payment_intent_id,
+                gateway_checkout_session_id=payment_result.checkout_session_id,
+                client_secret=payment_result.client_secret,
+                checkout_url=payment_result.checkout_url,
+                amount=order.total_price,
+                currency=serializer.validated_data.get("currency", "brl"),
+                status=payment_result.status,
+                metadata={
+                    "provider_user_id": provider_user.id if provider_user else None,
+                    "gateway_response": payment_result.raw_response or {},
+                },
+            )
+        except PaymentGatewayError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        output_serializer = PaymentIntentSerializer(payment_intent)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class MedicalPrescriptionViewSet(viewsets.ModelViewSet):

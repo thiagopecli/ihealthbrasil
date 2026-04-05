@@ -12,6 +12,9 @@ from products.models import (
     Category,
     MedicalPrescription,
     Order,
+    PaymentConnectedAccount,
+    PaymentCustomer,
+    PaymentIntent,
     PrescriptionAccessAudit,
     Product,
     ProductDosage,
@@ -427,11 +430,9 @@ class MedicalPrescriptionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
-@override_settings(PAYMENT_WEBHOOK_SECRET=WEBHOOK_TEST_SECRET)  # nosec B106
-class PaymentWebhookAPITests(APITestCase):
-    """Testes para split de pagamento e webhook de atualização de status."""
-
-    webhook_url = "/api/payments/webhooks/gateway/"
+@override_settings(PAYMENT_GATEWAY_PROVIDER="mock")
+class OrderPaymentIntentAPITests(APITestCase):
+    """Testes de pagamento/split (Sprint 6)."""
 
     def setUp(self):
         user_model = get_user_model()
@@ -443,6 +444,79 @@ class PaymentWebhookAPITests(APITestCase):
         self.provider = user_model.objects.create_user(
             username="payment_provider",
             email="payment_provider@example.com",
+            profile=user_model.Profile.PROVIDER,
+        )
+        self.admin = user_model.objects.create_user(
+            username="payment_admin",
+            email="payment_admin@example.com",
+            profile=user_model.Profile.ADMIN,
+            is_staff=True,
+        )
+
+        self.order = Order.objects.create(
+            user=self.patient,
+            status=Order.Status.PENDING,
+            total_price=Decimal("199.90"),
+        )
+
+    def test_patient_can_create_payment_intent_for_own_order(self):
+        self.client.force_authenticate(user=self.patient)
+
+        response = self.client.post(
+            f"/api/orders/{self.order.id}/payment-intent/",
+            {"currency": "brl"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["gateway"], "mock")
+        self.assertIn("gateway_payment_intent_id", response.data)
+        self.assertIn("client_secret", response.data)
+        self.assertIn("checkout_url", response.data)
+        self.assertTrue(PaymentIntent.objects.filter(order=self.order).exists())
+        self.assertTrue(PaymentCustomer.objects.filter(user=self.patient, gateway="mock").exists())
+
+    def test_create_payment_intent_with_provider_creates_connected_account(self):
+        self.client.force_authenticate(user=self.patient)
+
+        response = self.client.post(
+            f"/api/orders/{self.order.id}/payment-intent/",
+            {"provider_user_id": self.provider.id, "currency": "brl"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["metadata"]["provider_user_id"], self.provider.id)
+        self.assertTrue(PaymentConnectedAccount.objects.filter(user=self.provider, gateway="mock").exists())
+
+    def test_patient_cannot_create_payment_intent_for_other_user_order(self):
+        other_order = Order.objects.create(
+            user=self.admin,
+            status=Order.Status.PENDING,
+            total_price=Decimal("350.00"),
+        )
+        self.client.force_authenticate(user=self.patient)
+
+        response = self.client.post(f"/api/orders/{other_order.id}/payment-intent/", {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+@override_settings(PAYMENT_WEBHOOK_SECRET=WEBHOOK_TEST_SECRET)  # nosec B106
+class PaymentWebhookAPITests(APITestCase):
+    """Testes para split de pagamento e webhook de atualização de status."""
+
+    webhook_url = "/api/payments/webhooks/gateway/"
+
+    def setUp(self):
+        user_model = get_user_model()
+        self.patient = user_model.objects.create_user(
+            username="payment_patient_webhook",
+            email="payment_patient_webhook@example.com",
+            profile=user_model.Profile.PATIENT,
+        )
+        self.provider = user_model.objects.create_user(
+            username="payment_provider_webhook",
+            email="payment_provider_webhook@example.com",
             profile=user_model.Profile.PROVIDER,
         )
 

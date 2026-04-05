@@ -5,6 +5,7 @@ from products.models import (
     MedicalPrescription,
     Order,
     OrderItem,
+    PaymentIntent,
     PaymentTransaction,
     PrescriptionAccessAudit,
     Product,
@@ -268,6 +269,40 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "user", "total_price", "created_at", "updated_at"]
+
+
+class PaymentIntentCreateSerializer(serializers.Serializer):
+    """Payload para iniciar pagamento no checkout."""
+
+    provider_user_id = serializers.IntegerField(required=False, min_value=1)
+    currency = serializers.CharField(required=False, min_length=3, max_length=3)
+
+    def validate_currency(self, value: str) -> str:
+        if not value.isalpha():
+            raise serializers.ValidationError("Moeda deve conter apenas letras (ex.: brl, usd).")
+        return value.lower()
+
+
+class PaymentIntentSerializer(serializers.ModelSerializer):
+    """Resposta da intenção de pagamento criada no gateway."""
+
+    class Meta:
+        model = PaymentIntent
+        fields = [
+            "id",
+            "order",
+            "gateway",
+            "gateway_payment_intent_id",
+            "gateway_checkout_session_id",
+            "client_secret",
+            "checkout_url",
+            "amount",
+            "currency",
+            "status",
+            "metadata",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class PrescriptionAccessAuditSerializer(serializers.ModelSerializer):
