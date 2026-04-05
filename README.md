@@ -20,6 +20,8 @@ Construir uma base de API robusta com foco em:
 - drf-spectacular (OpenAPI/Swagger)
 - Stripe SDK (integração de pagamentos)
 - Celery + Redis (tarefas assíncronas)
+- Gunicorn (servidor WSGI para produção)
+- Docker + Docker Compose (deploy básico)
 - SQLite no desenvolvimento local
 - PostgreSQL em producao (via `DATABASE_URL`)
 
@@ -89,6 +91,29 @@ Documentacao da API:
 - `GET /api/schema/` (OpenAPI)
 - `GET /api/docs/swagger/` (Swagger UI)
 - `GET /api/docs/redoc/` (ReDoc)
+
+## Deploy basico com Docker
+
+### 1) Ajustar `.env` para ambiente de container
+
+- `DJANGO_ENV=production`
+- `DEBUG=False`
+- `ALLOWED_HOSTS=127.0.0.1,localhost`
+- `CSRF_TRUSTED_ORIGINS` com os domínios HTTPS do ambiente
+- `CELERY_BROKER_URL=redis://redis:6379/0`
+- `CELERY_RESULT_BACKEND=redis://redis:6379/0`
+
+### 2) Subir API + worker + Redis
+
+```bash
+docker compose up --build
+```
+
+Serviços:
+
+- `web`: Django + Gunicorn em `http://127.0.0.1:8000`
+- `worker`: Celery worker
+- `redis`: broker/result backend para tarefas assíncronas
 
 ## Qualidade e contribuicao
 
@@ -280,6 +305,14 @@ Endpoint novo:
 - disparo assíncrono de notificacao por mudanca de status do pedido
 - fallback seguro para execucao local quando broker estiver indisponivel
 - auditoria de notificacoes externas em `ExternalNotification`
+
+### Sprint 10 (entregue)
+
+- otimização de querysets em endpoints críticos para reduzir N+1
+- documentação OpenAPI enriquecida com exemplos de payload em endpoints de pagamento
+- hardening de segurança para produção (HSTS, cookies seguros, SSL redirect)
+- Dockerização do backend com `Dockerfile` e `docker-compose.yml`
+- CI com validação de build de imagem Docker
 
 ## Proximos passos sugeridos
 
