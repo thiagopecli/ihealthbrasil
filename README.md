@@ -300,6 +300,7 @@ Endpoint novo:
 - criação de customer (comprador) no gateway
 - criação de connected account (fornecedor) para split
 - criação de payment intent no checkout com retorno de token (`client_secret`) e link (`checkout_url`)
+- validação operacional completa com o gateway real escolhido
 
 Endpoint novo de checkout/pagamento:
 
