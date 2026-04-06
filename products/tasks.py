@@ -16,7 +16,13 @@ from config.observability import (
     get_current_trace_id,
 )
 from products.models import ExternalNotification, Order
-from products.notifications import SmsProviderError, build_order_status_sms_message, get_sms_provider, mask_phone_number
+from products.notifications import (
+    SmsProviderError,
+    build_order_status_sms_message,
+    get_sms_provider,
+    mask_email_address,
+    mask_phone_number,
+)
 
 logger = logging.getLogger("ihealthbrasil.tasks")
 
@@ -330,7 +336,7 @@ def send_prescription_notification_email_task(
                 details={
                     "notification_type": notification_type,
                     "email_sent": True,
-                    "recipient": user.email,
+                    "recipient_masked": mask_email_address(user.email),
                     "correlation_id": correlation_id,
                     "trace_id": trace_id,
                 },

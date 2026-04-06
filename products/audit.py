@@ -9,7 +9,20 @@ from products.models import MedicalPrescription, PrescriptionAccessAudit
 
 def _sanitize_payload(value: Any) -> Any:
     """Recursivamente sanitiza payloads, removendo dados sensíveis."""
-    SENSITIVE_KEYS = {"password", "token", "refresh", "authorization", "secret", "api_key", "cpf", "medical_record"}
+    SENSITIVE_KEYS = {
+        "password",
+        "token",
+        "refresh",
+        "authorization",
+        "secret",
+        "api_key",
+        "cpf",
+        "medical_record",
+        "email",
+        "recipient",
+        "phone",
+        "phone_number",
+    }
 
     if isinstance(value, dict):
         return {k: "[REDACTED]" if str(k).lower() in SENSITIVE_KEYS else _sanitize_payload(v) for k, v in value.items()}
