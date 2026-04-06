@@ -203,10 +203,7 @@ class ObservabilityMetrics:
                 ]
             )
             for (route, method), count in sorted(self._errors_total.items()):
-                lines.append(
-                    "ihealthbrasil_http_request_errors_total"
-                    f'{{route="{route}",method="{method}"}} {count}'
-                )
+                lines.append("ihealthbrasil_http_request_errors_total" f'{{route="{route}",method="{method}"}} {count}')
 
             lines.extend(
                 [

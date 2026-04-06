@@ -907,7 +907,9 @@ class PaymentWebhookAPITests(APITestCase):
     def test_enqueue_order_status_sms_propagates_correlation_id(self):
         with patch("products.tasks.send_order_status_sms_task.delay") as mock_delay:
             with bind_observability_context(correlation_id="corr-task-123", trace_id="trace-task-123"):
-                enqueue_order_status_sms(order_id=self.order.id, event_name="payment.approved", status_value=Order.Status.PAID)
+                enqueue_order_status_sms(
+                    order_id=self.order.id, event_name="payment.approved", status_value=Order.Status.PAID
+                )
 
         mock_delay.assert_called_once()
         self.assertEqual(mock_delay.call_args.kwargs["correlation_id"], "corr-task-123")

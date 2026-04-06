@@ -116,7 +116,11 @@ def send_order_status_sms_task(
         )
         logger.info(
             "task_completed",
-            extra={"task_name": "send_order_status_sms_task", "order_id": order_id, "external_message_id": result.message_id},
+            extra={
+                "task_name": "send_order_status_sms_task",
+                "order_id": order_id,
+                "external_message_id": result.message_id,
+            },
         )
 
 
@@ -172,7 +176,9 @@ def send_prescription_to_memed_task(
         span_id=generate_span_id(),
         route="celery.send_prescription_to_memed_task",
     ):
-        logger.info("task_started", extra={"task_name": "send_prescription_to_memed_task", "prescription_id": prescription_id})
+        logger.info(
+            "task_started", extra={"task_name": "send_prescription_to_memed_task", "prescription_id": prescription_id}
+        )
 
         prescription = MedicalPrescription.objects.filter(id=prescription_id).first()
         if prescription is None or not settings.MEMED_ENABLED or not prescription.file:
