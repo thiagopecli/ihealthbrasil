@@ -139,6 +139,13 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Documentacao OpenAPI da API backend do projeto ihealthbrasil.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "OrderStatusEnum": "products.models.Order.Status",
+        "PaymentTransactionStatusEnum": "products.models.PaymentTransaction.Status",
+        "PaymentIntentStatusEnum": "products.models.PaymentIntent.Status",
+        "MedicalPrescriptionStatusEnum": "products.models.MedicalPrescription.Status",
+        "ExternalNotificationStatusEnum": "products.models.ExternalNotification.Status",
+    },
 }
 
 SIMPLE_JWT = {

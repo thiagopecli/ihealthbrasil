@@ -222,6 +222,8 @@ python manage.py check
 python manage.py test
 ```
 
+O schema OpenAPI do backend tambem foi ajustado para gerar menos ruido de enum e tipagem em `products`.
+
 Padroes adotados:
 
 - formatter: `black`
