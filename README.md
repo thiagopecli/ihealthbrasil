@@ -115,6 +115,82 @@ Serviços:
 - `worker`: Celery worker
 - `redis`: broker/result backend para tarefas assíncronas
 
+## Sprint 8: Integrações Externas
+
+### SMS via Twilio
+
+Configurar variáveis de ambiente:
+
+```env
+SMS_ENABLED=True
+SMS_PROVIDER=twilio  # ou 'mock' para testes
+TWILIO_ACCOUNT_SID=your_sid
+TWILIO_AUTH_TOKEN=your_token
+TWILIO_FROM_NUMBER=+1234567890
+```
+
+### Prescrições com Memed
+
+Para validação externa de receitas:
+
+```env
+MEMED_ENABLED=True
+MEMED_PROVIDER=memed  # ou 'mock' para testes
+MEMED_API_KEY=your_api_key
+MEMED_API_BASE_URL=https://api.memed.com.br/v1
+```
+
+No admin, após submeter um receita, use o action "Enviar para validacao Memed".
+
+### Email de Notificações
+
+Configurar provider de email:
+
+```env
+EMAIL_ENABLED=True
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=your_email@gmail.com
+EMAIL_HOST_PASSWORD=your_app_password
+EMAIL_USE_TLS=True
+EMAIL_FROM_ADDRESS=noreply@ihealthbrasil.com.br
+```
+
+Or usar console em desenvolvimento:
+
+```env
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+```
+
+### Celery Beat: Tarefas Agendadas
+
+Para marcar receitas como expiradas automaticamente (diariamente à meia-noite UTC):
+
+```bash
+celery -A config beat -l info
+```
+
+Em produção (Docker), considere usar `worker-pool-restarts` ou `Kubernetes CronJob`.
+
+### Healthcheck Expandido
+
+```bash
+GET /health/           # status básico
+GET /health/?detailed=true  # inclui Redis/broker
+```
+
+Resposta exemplo:
+
+```json
+{
+  "status": "ok",
+  "components": {
+    "database": "ok",
+    "redis": "ok"
+  }
+}
+```
+
 ## Qualidade e contribuicao
 
 Dependencias de desenvolvimento:

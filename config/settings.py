@@ -185,8 +185,36 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
 
+# Memed Integration (prescricoes externas)
+MEMED_ENABLED = os.getenv("MEMED_ENABLED", "False").lower() == "true"
+MEMED_PROVIDER = os.getenv("MEMED_PROVIDER", "mock").lower()
+MEMED_API_KEY = os.getenv("MEMED_API_KEY", "")
+MEMED_API_BASE_URL = os.getenv("MEMED_API_BASE_URL", "https://api.memed.com.br/v1")
+
+# Email for notifications (Sprint 8)
+EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "False").lower() == "true"
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() == "true"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
+EMAIL_FROM_ADDRESS = os.getenv("EMAIL_FROM_ADDRESS", "noreply@ihealthbrasil.com.br")
+
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "False").lower() == "true"
 CELERY_TASK_EAGER_PROPAGATES = os.getenv("CELERY_TASK_EAGER_PROPAGATES", "True").lower() == "true"
 CELERY_TASK_IGNORE_RESULT = os.getenv("CELERY_TASK_IGNORE_RESULT", "True").lower() == "true"
+
+# Celery Beat - Scheduled Tasks (Sprint 8)
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "mark-expired-prescriptions": {
+        "task": "products.tasks.mark_expired_prescriptions",
+        "schedule": crontab(hour=0, minute=0),  # Executa diariamente à meia noite UTC
+        "options": {"queue": "default", "priority": 10},
+    },
+}
