@@ -29,7 +29,7 @@ class RequestObservabilityMiddleware:
     def __call__(self, request):
         start = time.perf_counter()
         route = resolve_request_route(request)
-        user = resolve_request_user(request)
+        initial_user = resolve_request_user(request)
         correlation_id = request.headers.get(CORRELATION_ID_HEADER) or request.META.get("HTTP_X_REQUEST_ID")
         if not correlation_id:
             correlation_id = generate_correlation_id()
@@ -46,7 +46,7 @@ class RequestObservabilityMiddleware:
             trace_id=trace_id,
             span_id=span_id,
             route=route,
-            user=user,
+            user=initial_user,
         ):
             request.correlation_id = correlation_id
             request.trace_id = trace_id
@@ -67,7 +67,7 @@ class RequestObservabilityMiddleware:
                     "request_failed",
                     extra={
                         "route": route,
-                        "user": user,
+                        "user": resolve_request_user(request),
                         "status_code": 500,
                         "duration_ms": round(duration_ms, 2),
                         "correlation_id": correlation_id,
@@ -98,7 +98,7 @@ class RequestObservabilityMiddleware:
                 "request_completed",
                 extra={
                     "route": route,
-                    "user": user,
+                    "user": resolve_request_user(request),
                     "status_code": status_code,
                     "duration_ms": round(duration_ms, 2),
                     "correlation_id": correlation_id,

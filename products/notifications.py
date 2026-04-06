@@ -95,6 +95,23 @@ def mask_phone_number(value: str) -> str:
     return f"***{digits[-4:]}"
 
 
+def mask_email_address(value: str) -> str:
+    email = (value or "").strip()
+    if not email or "@" not in email:
+        return "***"
+
+    local, domain = email.split("@", 1)
+    if not local:
+        return f"***@{domain}"
+    if len(local) == 1:
+        masked_local = "*"
+    elif len(local) == 2:
+        masked_local = f"{local[0]}*"
+    else:
+        masked_local = f"{local[0]}***{local[-1]}"
+    return f"{masked_local}@{domain}"
+
+
 def build_order_status_sms_message(order_id: int, status_value: str) -> str:
     return f"iHealth: pedido #{order_id} atualizado para status {status_value}."
 

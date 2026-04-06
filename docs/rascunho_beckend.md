@@ -251,6 +251,7 @@ Ja foi feito:
 
 - `correlation_id` e `traceparent` propagados em requests, tasks e webhooks
 - logs estruturados em JSON com campos mínimos de request
+- hardening LGPD em auditoria: campos de contato sensíveis sanitizados e email mascarado em notificações
 - métricas HTTP de latência, erro e throughput expostas em `/metrics/`
 - rate limiting nas rotas públicas e críticas de autenticação, health e webhook
 - playbook operacional com incidentes e alertas

@@ -229,6 +229,7 @@ Observabilidade adicionada:
 
 - `correlation_id` e `traceparent` propagados em requests, tasks e webhooks
 - logs estruturados em JSON com usuario, rota, status, tempo de resposta e identificadores de correlação
+- mascaramento de identificadores de contato (email) em trilhas de auditoria de notificações
 - métricas HTTP expostas em `/metrics/`
 - rate limiting nas rotas públicas e críticas de autenticação, health e webhook
 
