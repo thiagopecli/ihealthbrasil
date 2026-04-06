@@ -38,8 +38,8 @@ O que ainda impede considerar o sistema pronto para producao total:
 | Sprint 4 | Concluida | 100% | Carrinho persistente (Cart/CartItem), endpoints de carrinho e checkout completo carrinho -> pedido | Nenhuma pendencia aberta |
 | Sprint 5 | Concluida | 100% | Upload, auditoria, aprovacao/rejeicao, storage privado e URL assinada temporaria | Nenhuma pendencia aberta |
 | Sprint 6 | Concluida | 100% | Gateway, customer, connected account e payment intent | Validacao operacional do gateway real |
-| Sprint 7 | Concluida | 95% | Webhook seguro, idempotencia e split | Monitoramento financeiro e conciliacao |
-| Sprint 8 | Concluida com item em aberto | 80% | Celery, SMS assíncrono e auditoria de notificacao | Integração Memed, se ainda for requisito |
+| Sprint 7 | Concluida | 100% | Webhook seguro, idempotencia e split | Nenhuma pendencia aberta |
+| Sprint 8 | Concluida | 100% | Celery, SMS assíncrono, auditoria de notificacao, Memed, Celery Beat e email | Nenhuma pendencia aberta |
 | Sprint 9 | Concluida | 100% | Painel do fornecedor e extrato financeiro | Exportacoes e filtros extras, se precisar |
 | Sprint 10 | Concluida com gaps | 80% | OpenAPI, Docker, otimizações e hardening basico | Observabilidade completa e tracing |
 
@@ -172,7 +172,7 @@ Falta para producao:
 
 ### Sprint 7 - Webhooks e automacao de status
 
-Status: concluida.
+Status: concluida (100%).
 
 Ja foi feito:
 
@@ -184,12 +184,11 @@ Ja foi feito:
 
 Falta para producao:
 
-- monitoramento de retries e falhas do webhook
-- trilha operacional para conciliacao financeira
+- nenhuma pendencia aberta
 
 ### Sprint 8 - Integracoes externas
 
-Status: concluida, com um item em aberto se Memed ainda estiver no escopo.
+Status: concluida (100%).
 
 Ja foi feito:
 
@@ -198,12 +197,16 @@ Ja foi feito:
 - provider mock e provider Twilio
 - fallback local quando o broker nao esta disponivel
 - auditoria de notificacoes externas
+- integracao Memed com providers mock e real para validacao de receitas
+- Celery Beat com scheduler para marcar receitas como expiradas automaticamente
+- healthcheck expandido com verificacao de Redis/broker
+- tasks assincronas para envio de email de notificacao (aprovacao/rejeicao)
+- admin customizado para MedicalPrescription com actions rapidas (verificar, rejeitar, enviar Memed)
+- PrescriptionAccessAudit admin com rastreio completo de acessos
 
 Falta para producao:
 
-- integracao Memed, se a prescricao externa continuar sendo requisito
-- healthcheck do broker/Redis
-- scheduler/beat, se houver expiracao ou notificacoes recorrentes
+- nenhuma pendencia aberta
 
 ### Sprint 9 - Painel do fornecedor e relatorios
 

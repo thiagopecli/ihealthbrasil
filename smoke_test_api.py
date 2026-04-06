@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 import django
 
@@ -98,12 +99,16 @@ def main():
 
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
 
+    category_suffix = uuid4().hex[:8]
     response = client.post(
         "/api/categories/",
-        {"name": "analgesicos-smoke", "description": "categoria smoke"},
+        {"name": f"analgesicos-smoke-{category_suffix}", "description": "categoria smoke"},
         format="json",
     )
-    add_result("POST /api/categories/ com admin", response.status_code in (200, 201), f"status={response.status_code}")
+    detail = f"status={response.status_code}"
+    if response.status_code >= 400:
+        detail = f"status={response.status_code} data={getattr(response, 'data', None)}"
+    add_result("POST /api/categories/ com admin", response.status_code in (200, 201), detail)
 
     response = client.get("/api/products/?search=analgesico&ordering=price&page=1&page_size=10")
     add_result("GET /api/products/ com query params", response.status_code == 200, f"status={response.status_code}")
