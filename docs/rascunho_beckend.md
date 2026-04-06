@@ -24,8 +24,8 @@ O que ainda impede considerar o sistema pronto para producao total:
 - precificacao multimoeda por pais/moeda
 - expiracao automatica de receitas com tarefa agendada
 - integracao externa de prescricao, se esta ainda for requisito de negocio
-- observabilidade mais madura com correlation_id, metricas e tracing
-- endurecimento de operacao com rate limit, export LGPD e playbook de incidentes
+- tracing distribuido completo com stack externa, se o ambiente exigir
+- alertas formais integrados ao monitoramento real
 
 ## Tabela resumo por sprint
 
@@ -41,7 +41,7 @@ O que ainda impede considerar o sistema pronto para producao total:
 | Sprint 7 | Concluida | 100% | Webhook seguro, idempotencia e split | Nenhuma pendencia aberta |
 | Sprint 8 | Concluida | 100% | Celery, SMS assíncrono, auditoria de notificacao, Memed, Celery Beat e email | Nenhuma pendencia aberta |
 | Sprint 9 | Concluida | 100% | Painel do fornecedor e extrato financeiro | Exportacoes e filtros extras, se precisar |
-| Sprint 10 | Concluida com gaps | 80% | OpenAPI, Docker, otimizações e hardening basico | Observabilidade completa e tracing |
+| Sprint 10 | Concluida com gaps | 95% | OpenAPI, Docker, otimizações e hardening basico | tracing distribuido completo e alertas formais |
 
 Leitura rapida da tabela:
 
@@ -239,12 +239,26 @@ Ja foi feito:
 
 Falta para producao:
 
-- correlation_id em todas as requisicoes
-- logs estruturados de verdade
-- metricas de latencia, erro e throughput
-- tracing distribuido
-- rate limiting e protecoes extras de borda
-- playbook de incidentes e alertas operacionais
+- tracing distribuido completo com stack externa, se o ambiente exigir
+- alertas formais integrados ao monitoramento real
+- protecoes extras de borda, se houver API pública fora do gateway
+
+### Sprint 11 - observabilidade e operacao
+
+Status: concluida com necessidade de integracao externa para tracing completo.
+
+Ja foi feito:
+
+- `correlation_id` e `traceparent` propagados em requests, tasks e webhooks
+- logs estruturados em JSON com campos mínimos de request
+- métricas HTTP de latência, erro e throughput expostas em `/metrics/`
+- rate limiting nas rotas públicas e críticas de autenticação, health e webhook
+- playbook operacional com incidentes e alertas
+
+Falta para producao:
+
+- tracing distribuído completo, se a stack de infra já estiver disponível
+- integração com alertas do monitoramento real
 
 ## O que ja esta pronto para producao
 

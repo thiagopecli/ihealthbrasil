@@ -21,9 +21,11 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.request import Request
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from accounts.permissions import HasAnyProfile
+from config.observability import get_current_correlation_id, get_current_trace_id
 from products.audit import log_prescription_access
 from products.models import (
     Cart,
@@ -1072,6 +1074,8 @@ class PaymentGatewayWebhookAPIView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "payment-webhook"
 
     @staticmethod
     def _normalize_payment_method(value: str | None) -> str:
@@ -1141,6 +1145,8 @@ class PaymentGatewayWebhookAPIView(APIView):
         if not self._is_valid_signature(request):
             return Response({"detail": "Assinatura inválida."}, status=status.HTTP_401_UNAUTHORIZED)
 
+        correlation_id = getattr(request, "correlation_id", None) or get_current_correlation_id()
+        trace_id = getattr(request, "trace_id", None) or get_current_trace_id()
         payload = request.data if isinstance(request.data, dict) else {}
         payload_data = cast(dict[str, Any], payload)
         event_name = str(payload_data.get("event") or payload_data.get("type") or "").strip().lower()
@@ -1224,6 +1230,15 @@ class PaymentGatewayWebhookAPIView(APIView):
                 event_name=event_name,
                 status_value=payment_model.order.status,
             )
+
+        event.payload = {
+            **(event.payload or {}),
+            "observability": {
+                "correlation_id": correlation_id,
+                "trace_id": trace_id,
+            },
+        }
+        event.save(update_fields=["payload"])
 
         return Response(
             {

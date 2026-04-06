@@ -1,8 +1,11 @@
+# pyright: reportAttributeAccessIssue=false
+
 import hashlib
 import hmac
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any, cast
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
@@ -12,6 +15,7 @@ from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from config.observability import bind_observability_context
 from products.models import (
     Cart,
     Category,
@@ -21,6 +25,7 @@ from products.models import (
     PaymentCustomer,
     PaymentIntent,
     PaymentTransaction,
+    PaymentWebhookEvent,
     PrescriptionAccessAudit,
     Product,
     ProductDosage,
@@ -29,13 +34,15 @@ from products.models import (
     ProductVariation,
     SalesRestriction,
 )
+from products.tasks import enqueue_order_status_sms
 
 WEBHOOK_TEST_SECRET = "webhook-test-secret"
 
 
 class ProductsAPITests(APITestCase):
     def setUp(self):
-        user_model = get_user_model()
+        user_model: Any = get_user_model()
+        self.client: Any = self.client
         self.user = user_model.objects.create_user(
             username="catalog_user",
             email="catalog_user@example.com",
@@ -800,9 +807,11 @@ class PaymentWebhookAPITests(APITestCase):
             data=raw_payload,
             content_type="application/json",
             HTTP_X_WEBHOOK_SIGNATURE=signature,
+            HTTP_X_CORRELATION_ID="corr-webhook-123",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["X-Correlation-ID"], "corr-webhook-123")
         self.assertTrue(response.data["processed"])
 
         self.order.refresh_from_db()
@@ -819,6 +828,8 @@ class PaymentWebhookAPITests(APITestCase):
             event_name="payment.approved",
             status_value=Order.Status.PAID,
         )
+        event = PaymentWebhookEvent.objects.get(event_id="evt-approved-1")
+        self.assertEqual(event.payload["observability"]["correlation_id"], "corr-webhook-123")
 
     def test_webhook_boleto_vencido_cancela_pedido(self):
         payload = {
@@ -892,6 +903,15 @@ class PaymentWebhookAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_enqueue_order_status_sms_propagates_correlation_id(self):
+        with patch("products.tasks.send_order_status_sms_task.delay") as mock_delay:
+            with bind_observability_context(correlation_id="corr-task-123", trace_id="trace-task-123"):
+                enqueue_order_status_sms(order_id=self.order.id, event_name="payment.approved", status_value=Order.Status.PAID)
+
+        mock_delay.assert_called_once()
+        self.assertEqual(mock_delay.call_args.kwargs["correlation_id"], "corr-task-123")
+        self.assertEqual(mock_delay.call_args.kwargs["trace_id"], "trace-task-123")
 
     def test_pagamento_aprovado_com_receita_pendente_vai_para_analise_medica(self):
         prescription = MedicalPrescription.objects.create(

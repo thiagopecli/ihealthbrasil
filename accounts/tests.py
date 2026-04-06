@@ -1,3 +1,7 @@
+# pyright: reportAttributeAccessIssue=false
+
+from typing import Any, cast
+
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -8,7 +12,8 @@ from accounts.models import AuthAuditEvent
 
 class AccountsAPITests(APITestCase):
     def setUp(self):
-        self.user_model = get_user_model()
+        self.user_model: Any = get_user_model()
+        self.client: Any = self.client
         self.password = "StrongPass@123"
 
         self.admin_user = self.user_model.objects.create_user(
@@ -103,20 +108,30 @@ class AccountsAPITests(APITestCase):
     def test_login_creates_audit_event_without_tokens(self):
         url = reverse("token_obtain_pair")
 
-        response = self.client.post(url, {"username": "patient_user", "password": self.password}, format="json")
+        response = self.client.post(
+            url,
+            {"username": "patient_user", "password": self.password},
+            format="json",
+            HTTP_X_CORRELATION_ID="corr-login-123",
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["X-Correlation-ID"], "corr-login-123")
 
-        event = AuthAuditEvent.objects.filter(
-            user=self.patient_user,
-            event_type=AuthAuditEvent.EventType.LOGIN,
-            status=AuthAuditEvent.Status.SUCCESS,
-        ).first()
+        event = cast(
+            Any,
+            AuthAuditEvent.objects.filter(
+                user=self.patient_user,
+                event_type=AuthAuditEvent.EventType.LOGIN,
+                status=AuthAuditEvent.Status.SUCCESS,
+            ).first(),
+        )
 
         self.assertIsNotNone(event)
         self.assertNotIn("refresh", event.details)
         self.assertNotIn("access", event.details)
         self.assertNotIn("token", event.details)
+        self.assertEqual(event.details.get("correlation_id"), "corr-login-123")
 
     def test_failed_login_creates_failed_audit_event_without_password(self):
         url = reverse("token_obtain_pair")
@@ -125,10 +140,13 @@ class AccountsAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        event = AuthAuditEvent.objects.filter(
-            event_type=AuthAuditEvent.EventType.LOGIN,
-            status=AuthAuditEvent.Status.FAILED,
-        ).first()
+        event = cast(
+            Any,
+            AuthAuditEvent.objects.filter(
+                event_type=AuthAuditEvent.EventType.LOGIN,
+                status=AuthAuditEvent.Status.FAILED,
+            ).first(),
+        )
 
         self.assertIsNotNone(event)
         self.assertEqual(event.details.get("reason"), "invalid_credentials")

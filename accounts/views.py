@@ -1,14 +1,15 @@
-from typing import Any
+from typing import Any, cast
 
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
 
 from .audit import log_auth_event
 from .models import AuthAuditEvent
@@ -20,9 +21,12 @@ User = get_user_model()
 
 class AuditTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth-login"
 
     def post(self, request, *args, **kwargs):
-        username = request.data.get("username", "")
+        request_data = cast(dict[str, Any], request.data)
+        username = request_data.get("username", "")
         user = User.objects.filter(username=username).first()
         serializer = self.get_serializer(data=request.data)
 
@@ -54,6 +58,8 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth-register"
 
 
 class MeView(generics.RetrieveAPIView):
@@ -67,15 +73,18 @@ class MeView(generics.RetrieveAPIView):
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LogoutSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth-logout"
 
     @extend_schema(request=LogoutSerializer, responses={205: None, 400: DetailMessageSerializer})
     def post(self, request, *args, **kwargs):
         serializer = LogoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        refresh_raw = serializer.validated_data.get("refresh")
+        validated_data = cast(dict[str, Any], serializer.validated_data)
+        refresh_raw = validated_data.get("refresh")
 
         try:
-            refresh_token = RefreshToken(str(refresh_raw))
+            refresh_token = RefreshToken(cast(Any, refresh_raw))
             refresh_token.blacklist()
         except TokenError:
             log_auth_event(
@@ -115,3 +124,15 @@ class ProviderOrAdminView(APIView):
     @extend_schema(responses={200: DetailMessageSerializer})
     def get(self, _request, *args, **kwargs):
         return Response({"detail": "Acesso permitido para PROVIDER ou ADMIN."})
+
+
+class AuditTokenRefreshView(TokenRefreshView):
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth-refresh"
+
+
+class AuditTokenVerifyView(TokenVerifyView):
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth-verify"
