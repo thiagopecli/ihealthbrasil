@@ -18,6 +18,7 @@ def healthcheck(request):
     # Check database
     try:
         from django.db import connections
+
         connections["default"].ensure_connection()
         status_data["components"]["database"] = "ok"
     except Exception as e:
@@ -28,6 +29,7 @@ def healthcheck(request):
     if detailed:
         try:
             from celery import current_app
+
             current_app.connection().connect()
             status_data["components"]["redis"] = "ok"
         except Exception as e:
@@ -42,8 +44,16 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", healthcheck, name="healthcheck"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api_schema"),
-    path("api/docs/swagger/", SpectacularSwaggerView.as_view(url_name="api_schema"), name="swagger_ui"),
-    path("api/docs/redoc/", SpectacularRedocView.as_view(url_name="api_schema"), name="redoc_ui"),
+    path(
+        "api/docs/swagger/",
+        SpectacularSwaggerView.as_view(url_name="api_schema"),
+        name="swagger_ui",
+    ),
+    path(
+        "api/docs/redoc/",
+        SpectacularRedocView.as_view(url_name="api_schema"),
+        name="redoc_ui",
+    ),
     path("api/auth/", include("accounts.urls")),
     path("api/", include("products.urls")),
 ]

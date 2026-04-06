@@ -154,17 +154,13 @@ def enqueue_prescription_to_memed(*, prescription_id: int) -> None:
     retry_jitter=True,
     retry_kwargs={"max_retries": 2},
 )
-def send_prescription_notification_email_task(
-    self, *, prescription_id: int, notification_type: str
-) -> None:
+def send_prescription_notification_email_task(self, *, prescription_id: int, notification_type: str) -> None:
     """Envia email de notificacao apos verificacao/rejeicao de receita."""
     from django.core.mail import send_mail
 
     from products.models import MedicalPrescription
 
-    prescription = MedicalPrescription.objects.select_related(
-        "order__user"
-    ).filter(id=prescription_id).first()
+    prescription = MedicalPrescription.objects.select_related("order__user").filter(id=prescription_id).first()
 
     if prescription is None or not settings.EMAIL_ENABLED:
         return
@@ -173,8 +169,6 @@ def send_prescription_notification_email_task(
     if not user.email:
         return
 
-    # Mensagens por tipo de notificacao
-    status_text = prescription.get_status_display()
     subject_map = {
         "verified": f"Receita Aprovada - Pedido #{prescription.order.id}",
         "rejected": f"Receita Rejeitada - Pedido #{prescription.order.id}",
@@ -236,15 +230,16 @@ def send_prescription_notification_email_task(
         )
 
 
-def enqueue_prescription_notification_email(
-    *, prescription_id: int, notification_type: str
-) -> None:
+def enqueue_prescription_notification_email(*, prescription_id: int, notification_type: str) -> None:
     """Enfileira envio de email de notificacao."""
     try:
         celery_task = cast(Any, send_prescription_notification_email_task)
         celery_task.delay(prescription_id=prescription_id, notification_type=notification_type)
     except Exception:  # pragma: no cover
-        send_prescription_notification_email_task(prescription_id=prescription_id, notification_type=notification_type)
+        send_prescription_notification_email_task(
+            prescription_id=prescription_id,
+            notification_type=notification_type,
+        )
 
 
 # ============= SCHEDULED TASKS / CELERY BEAT (Sprint 8) =============

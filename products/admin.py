@@ -7,12 +7,12 @@ from products.models import (
     Category,
     ExternalNotification,
     MedicalPrescription,
+    PrescriptionAccessAudit,
     Product,
     ProductDosage,
     ProductPackageInsert,
     ProductPrice,
     ProductVariation,
-    PrescriptionAccessAudit,
     SalesRestriction,
 )
 
@@ -230,7 +230,15 @@ class CartAdmin(admin.ModelAdmin):
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ["id", "cart", "product", "product_variation", "quantity", "unit_price", "total_price"]
+    list_display = [
+        "id",
+        "cart",
+        "product",
+        "product_variation",
+        "quantity",
+        "unit_price",
+        "total_price",
+    ]
     list_filter = ["product__category", "created_at"]
     search_fields = ["cart__user__username", "product__name", "product__sku"]
     readonly_fields = ["created_at", "updated_at"]
@@ -347,9 +355,7 @@ class MedicalPrescriptionAdmin(admin.ModelAdmin):
         for prescription in queryset.filter(status=MedicalPrescription.Status.SUBMITTED):
             prescription.status = MedicalPrescription.Status.VERIFIED
             prescription.save(update_fields=["status", "updated_at"])
-            enqueue_prescription_notification_email(
-                prescription_id=prescription.pk, notification_type="verified"
-            )
+            enqueue_prescription_notification_email(prescription_id=prescription.pk, notification_type="verified")
             count += 1
 
         self.message_user(request, f"{count} receitas verificadas e emails enfileirados.")
@@ -364,9 +370,7 @@ class MedicalPrescriptionAdmin(admin.ModelAdmin):
         for prescription in queryset.filter(status=MedicalPrescription.Status.SUBMITTED):
             prescription.status = MedicalPrescription.Status.REJECTED
             prescription.save(update_fields=["status", "updated_at"])
-            enqueue_prescription_notification_email(
-                prescription_id=prescription.pk, notification_type="rejected"
-            )
+            enqueue_prescription_notification_email(prescription_id=prescription.pk, notification_type="rejected")
             count += 1
 
         self.message_user(request, f"{count} receitas rejeitadas e emails enfileirados.")
