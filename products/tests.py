@@ -5,7 +5,7 @@ import hmac
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, cast
+from typing import Any
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
