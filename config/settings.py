@@ -46,6 +46,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "config.middleware.RequestObservabilityMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -132,6 +133,54 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_RATES": {
+        "auth-login": os.getenv("THROTTLE_AUTH_LOGIN", "30/min"),
+        "auth-register": os.getenv("THROTTLE_AUTH_REGISTER", "20/hour"),
+        "auth-refresh": os.getenv("THROTTLE_AUTH_REFRESH", "120/min"),
+        "auth-verify": os.getenv("THROTTLE_AUTH_VERIFY", "120/min"),
+        "auth-logout": os.getenv("THROTTLE_AUTH_LOGOUT", "60/min"),
+        "payment-webhook": os.getenv("THROTTLE_PAYMENT_WEBHOOK", "600/min"),
+        "healthcheck": os.getenv("THROTTLE_HEALTHCHECK", "60/min"),
+    },
+}
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "config.logging.StructuredJSONFormatter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "ihealthbrasil.request": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "ihealthbrasil.tasks": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+    },
 }
 
 SPECTACULAR_SETTINGS = {

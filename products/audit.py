@@ -3,6 +3,7 @@
 from typing import Any
 
 from accounts.models import User as DjangoUser
+from config.observability import get_current_correlation_id, get_current_trace_id
 from products.models import MedicalPrescription, PrescriptionAccessAudit
 
 
@@ -56,6 +57,14 @@ def log_prescription_access(
     if user is None:
         user = request.user if request.user.is_authenticated else None
 
+    correlation_id = get_current_correlation_id()
+    trace_id = get_current_trace_id()
+    sanitized_details = _sanitize_payload(details or {})
+    if correlation_id:
+        sanitized_details["correlation_id"] = correlation_id
+    if trace_id:
+        sanitized_details["trace_id"] = trace_id
+
     return PrescriptionAccessAudit.objects.create(
         prescription=prescription,
         user=user,
@@ -63,7 +72,7 @@ def log_prescription_access(
         action=action,
         ip_address=_get_client_ip(request),
         user_agent=_get_user_agent(request),
-        details=_sanitize_payload(details or {}),
+        details=sanitized_details,
     )
 
 
@@ -78,7 +87,8 @@ def get_prescription_access_logs(prescription: MedicalPrescription, action: str 
     Returns:
         QuerySet de PrescriptionAccessAudit
     """
-    logs = prescription.access_logs.all()
+    prescription_model = prescription
+    logs = getattr(prescription_model, "access_logs").all()
     if action:
         logs = logs.filter(action=action)
     return logs.order_by("-created_at")

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from config.observability import get_current_correlation_id, get_current_trace_id
+
 from .models import AuthAuditEvent, User
 
 SENSITIVE_KEYS = {
@@ -54,6 +56,12 @@ def log_auth_event(
     details: dict[str, Any] | None = None,
 ) -> AuthAuditEvent:
     sanitized_details = _sanitize_payload(details or {})
+    correlation_id = get_current_correlation_id()
+    trace_id = get_current_trace_id()
+    if correlation_id:
+        sanitized_details["correlation_id"] = correlation_id
+    if trace_id:
+        sanitized_details["trace_id"] = trace_id
     resolved_username = username or (user.username if user else "")
     resolved_profile = user.profile if user else ""
 

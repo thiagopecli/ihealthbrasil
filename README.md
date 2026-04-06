@@ -85,6 +85,7 @@ celery -A config worker -l info
 Healthcheck:
 
 - `GET /health/`
+- `GET /metrics/`
 
 Documentacao da API:
 
@@ -223,6 +224,13 @@ python manage.py test
 ```
 
 O schema OpenAPI do backend tambem foi ajustado para gerar menos ruido de enum e tipagem em `products`.
+
+Observabilidade adicionada:
+
+- `correlation_id` e `traceparent` propagados em requests, tasks e webhooks
+- logs estruturados em JSON com usuario, rota, status, tempo de resposta e identificadores de correlação
+- métricas HTTP expostas em `/metrics/`
+- rate limiting nas rotas públicas e críticas de autenticação, health e webhook
 
 Padroes adotados:
 
