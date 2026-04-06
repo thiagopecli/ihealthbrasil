@@ -232,6 +232,7 @@ Ja foi feito:
 
 - queries otimizadas com select_related e prefetch_related em pontos criticos
 - OpenAPI/Swagger/ReDoc habilitados
+- schema OpenAPI com nomes explicitamente definidos para enums de status no backend de products
 - exemplos de payload em endpoints importantes
 - Docker e Docker Compose
 - hardening basico de producao no settings

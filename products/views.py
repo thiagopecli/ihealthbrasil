@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import os
+from typing import Any, cast
 from decimal import Decimal
 
 from django.conf import settings
@@ -19,6 +20,7 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.request import Request
 from rest_framework.views import APIView
 
 from accounts.permissions import HasAnyProfile
@@ -138,7 +140,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "price", "created_at", "stock"]
     ordering = ["-created_at"]
 
-    def get_serializer_class(self):
+    def get_serializer_class(self):  # type: ignore[override]
         """Retorna o serializer apropriado baseado na ação."""
         if self.action == "retrieve":
             return ProductDetailSerializer
@@ -146,10 +148,11 @@ class ProductViewSet(viewsets.ModelViewSet):
             return ProductCreateUpdateSerializer
         return ProductListSerializer
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore[override]
         """Filtra produtos por categoria se parametro fornecido."""
         queryset = super().get_queryset()
-        category_slug = self.request.query_params.get("category_slug")
+        request = cast(Request, self.request)
+        category_slug = request.query_params.get("category_slug")
         if category_slug:
             queryset = queryset.filter(category__slug=category_slug)
         return queryset
@@ -224,14 +227,18 @@ class PartnerProductViewSet(viewsets.ModelViewSet):
     ordering = ["-updated_at"]
     lookup_field = "slug"
 
-    def get_queryset(self):
-        user = self.request.user
+    def get_queryset(self):  # type: ignore[override]
+        if getattr(self, "swagger_fake_view", False):
+            return Product.objects.none()
+
+        request = cast(Request, self.request)
+        user = request.user
         queryset = Product.objects.select_related("category", "provider").all()
 
         if not user.is_staff and getattr(user, "profile", None) != "ADMIN":
             queryset = queryset.filter(provider=user)
 
-        category_slug = self.request.query_params.get("category_slug")
+        category_slug = request.query_params.get("category_slug")
         if category_slug:
             queryset = queryset.filter(category__slug=category_slug)
 
@@ -251,8 +258,12 @@ class PartnerSplitStatementViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["paid_at", "created_at", "gross_amount", "provider_amount"]
     ordering = ["-paid_at", "-created_at"]
 
-    def get_queryset(self):
-        user = self.request.user
+    def get_queryset(self):  # type: ignore[override]
+        if getattr(self, "swagger_fake_view", False):
+            return PaymentTransaction.objects.none()
+
+        request = cast(Request, self.request)
+        user = request.user
         queryset = PaymentTransaction.objects.select_related("order", "order__provider").filter(
             is_split_calculated=True
         )
@@ -260,17 +271,17 @@ class PartnerSplitStatementViewSet(viewsets.ReadOnlyModelViewSet):
         if not user.is_staff and getattr(user, "profile", None) != "ADMIN":
             queryset = queryset.filter(order__provider=user)
 
-        gateway_status = self.request.query_params.get("gateway_status")
+        gateway_status = request.query_params.get("gateway_status")
         if gateway_status:
             queryset = queryset.filter(gateway_status=gateway_status.upper())
 
-        start_date = self.request.query_params.get("start_date")
+        start_date = request.query_params.get("start_date")
         if start_date:
             parsed_start = parse_date(start_date)
             if parsed_start:
                 queryset = queryset.filter(paid_at__date__gte=parsed_start)
 
-        end_date = self.request.query_params.get("end_date")
+        end_date = request.query_params.get("end_date")
         if end_date:
             parsed_end = parse_date(end_date)
             if parsed_end:
@@ -461,13 +472,15 @@ class SalesRestrictionViewSet(viewsets.ModelViewSet):
 class CartViewSet(viewsets.ViewSet):
     """Carrinho persistente por usuário com checkout para pedido."""
 
+    serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
 
     def _get_or_create_cart(self, user) -> Cart:
         cart, _ = Cart.objects.get_or_create(user=user)
         return cart
 
-    def _serialize_cart(self, cart: Cart, request) -> dict:
+    def _serialize_cart(self, cart: Cart, request: Request) -> dict:
+        cart_model = cast(Any, cart)
         cart = (
             Cart.objects.select_related("user")
             .prefetch_related(
@@ -480,10 +493,10 @@ class CartViewSet(viewsets.ViewSet):
                     ),
                 )
             )
-            .get(id=cart.id)
+            .get(id=cart_model.id)
         )
         cart.recalculate_total(save=True)
-        return CartSerializer(cart, context={"request": request}).data
+        return cast(dict[str, Any], CartSerializer(cart, context={"request": request}).data)
 
     @action(detail=False, methods=["get"], url_path="me")
     def me(self, request):
@@ -499,9 +512,10 @@ class CartViewSet(viewsets.ViewSet):
         serializer = CartItemUpsertSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        product = serializer.validated_data["product"]
-        product_variation = serializer.validated_data["product_variation"]
-        quantity = serializer.validated_data["quantity"]
+        validated_data = cast(dict[str, Any], serializer.validated_data)
+        product = validated_data["product"]
+        product_variation = validated_data["product_variation"]
+        quantity = validated_data["quantity"]
 
         item_qs = CartItem.objects.select_for_update().filter(cart=cart, product=product)
         if product_variation is None:
@@ -533,9 +547,9 @@ class CartViewSet(viewsets.ViewSet):
 
         return Response(self._serialize_cart(cart, request), status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=["patch", "delete"], url_path=r"items/(?P<item_id>[^/.]+)")
+    @action(detail=False, methods=["patch", "delete"], url_path=r"items/(?P<item_id>\d+)")
     @transaction.atomic
-    def update_item(self, request, item_id=None):
+    def update_item(self, request, item_id: int | None = None):
         """Atualiza quantidade ou remove item do carrinho."""
         cart = self._get_or_create_cart(request.user)
         item = CartItem.objects.select_for_update().filter(id=item_id, cart=cart).first()
@@ -576,6 +590,7 @@ class CartViewSet(viewsets.ViewSet):
         """Converte carrinho em pedido consolidado e limpa carrinho."""
         payload_serializer = CartCheckoutSerializer(data=request.data)
         payload_serializer.is_valid(raise_exception=True)
+        payload_data = cast(dict[str, Any], payload_serializer.validated_data)
 
         cart = (
             Cart.objects.select_for_update()
@@ -583,10 +598,11 @@ class CartViewSet(viewsets.ViewSet):
             .filter(user=request.user)
             .first()
         )
-        if not cart or not cart.items.exists():
+        cart_model = cast(Any, cart)
+        if not cart_model or not cart_model.items.exists():
             return Response({"detail": "Carrinho vazio."}, status=status.HTTP_400_BAD_REQUEST)
 
-        for item in cart.items.all():
+        for item in cart_model.items.all():
             if not item.product.is_active:
                 return Response(
                     {"detail": f"Produto inativo no carrinho: {item.product.name}."},
@@ -598,22 +614,22 @@ class CartViewSet(viewsets.ViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        cart.recalculate_total(save=True)
+        cart_model.recalculate_total(save=True)
 
-        provider_ids = {item.product.provider_id for item in cart.items.all() if item.product.provider_id}
+        provider_ids = {item.product.provider_id for item in cart_model.items.all() if item.product.provider_id}
         provider_id = provider_ids.pop() if len(provider_ids) == 1 else None
 
         order = Order.objects.create(
             user=request.user,
             provider_id=provider_id,
             status=Order.Status.PENDING,
-            total_price=cart.total_price,
-            shipping_address=payload_serializer.validated_data.get("shipping_address"),
-            notes=payload_serializer.validated_data.get("notes"),
+            total_price=cart_model.total_price,
+            shipping_address=payload_data.get("shipping_address"),
+            notes=payload_data.get("notes"),
         )
 
         order_items = []
-        for item in cart.items.all():
+        for item in cart_model.items.all():
             order_items.append(
                 OrderItem(
                     order=order,
@@ -626,7 +642,7 @@ class CartViewSet(viewsets.ViewSet):
             )
 
         OrderItem.objects.bulk_create(order_items)
-        cart.clear()
+        cart_model.clear()
 
         order_output = OrderDetailSerializer(order, context={"request": request})
         return Response(order_output.data, status=status.HTTP_201_CREATED)
@@ -648,9 +664,13 @@ class OrderViewSet(viewsets.ModelViewSet):
     ordering_fields = ["total_price", "status", "created_at"]
     ordering = ["-created_at"]
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore[override]
         """Pacientes veem apenas seus pedidos. Admins veem todos."""
-        user = self.request.user
+        if getattr(self, "swagger_fake_view", False):
+            return Order.objects.none()
+
+        request = cast(Request, self.request)
+        user = request.user
         queryset = Order.objects.select_related("user", "provider", "payment")
 
         if self.action == "retrieve":
@@ -669,7 +689,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(user=user)
         return queryset
 
-    def get_serializer_class(self):
+    def get_serializer_class(self):  # type: ignore[override]
         """Usa serializer apropriado por ação."""
         if self.action == "retrieve":
             return OrderDetailSerializer
@@ -901,16 +921,20 @@ class MedicalPrescriptionViewSet(viewsets.ModelViewSet):
     ordering_fields = ["status", "created_at", "expires_at"]
     ordering = ["-created_at"]
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore[override]
         """Pacientes veem suas receitas. Admins veem todas."""
-        user = self.request.user
+        if getattr(self, "swagger_fake_view", False):
+            return MedicalPrescription.objects.none()
+
+        request = cast(Request, self.request)
+        user = request.user
         queryset = MedicalPrescription.objects.select_related("order", "order__user")
         if not user.is_staff:
             queryset = queryset.filter(order__user=user)
         audit_logs_queryset = PrescriptionAccessAudit.objects.select_related("user").order_by("-created_at")
         return queryset.prefetch_related(Prefetch("access_logs", queryset=audit_logs_queryset))
 
-    def get_serializer_class(self):
+    def get_serializer_class(self):  # type: ignore[override]
         """Serializer apropriado por ação."""
         if self.action == "create":
             return MedicalPrescriptionUploadSerializer
@@ -1118,9 +1142,10 @@ class PaymentGatewayWebhookAPIView(APIView):
             return Response({"detail": "Assinatura inválida."}, status=status.HTTP_401_UNAUTHORIZED)
 
         payload = request.data if isinstance(request.data, dict) else {}
-        event_name = str(payload.get("event") or payload.get("type") or "").strip().lower()
-        event_id = str(payload.get("event_id") or payload.get("id") or "").strip()
-        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        payload_data = cast(dict[str, Any], payload)
+        event_name = str(payload_data.get("event") or payload_data.get("type") or "").strip().lower()
+        event_id = str(payload_data.get("event_id") or payload_data.get("id") or "").strip()
+        data = cast(dict[str, Any], payload_data.get("data") if isinstance(payload_data.get("data"), dict) else {})
 
         if not event_name or not event_id:
             return Response(
@@ -1148,7 +1173,8 @@ class PaymentGatewayWebhookAPIView(APIView):
                 status=status.HTTP_202_ACCEPTED,
             )
 
-        gateway_transaction_id = str(data.get("transaction_id") or data.get("payment_id") or f"order-{order.id}")
+        order_model = cast(Any, order)
+        gateway_transaction_id = str(data.get("transaction_id") or data.get("payment_id") or f"order-{order_model.id}")
         payment, _created = PaymentTransaction.objects.select_for_update().get_or_create(
             order=order,
             defaults={
@@ -1186,16 +1212,17 @@ class PaymentGatewayWebhookAPIView(APIView):
             )
 
         payment.payment_method = self._normalize_payment_method(data.get("payment_method"))
-        previous_order_status = payment.order.status
+        payment_model = cast(Any, payment)
+        previous_order_status = payment_model.order.status
         payment.apply_gateway_event(event_name=event_name, payload=payload)
         payment.save()
-        payment.order.save(update_fields=["status", "updated_at"])
+        payment_model.order.save(update_fields=["status", "updated_at"])
 
-        if previous_order_status != payment.order.status:
+        if previous_order_status != payment_model.order.status:
             enqueue_order_status_sms(
-                order_id=payment.order_id,
+                order_id=payment_model.order_id,
                 event_name=event_name,
-                status_value=payment.order.status,
+                status_value=payment_model.order.status,
             )
 
         return Response(
@@ -1203,8 +1230,8 @@ class PaymentGatewayWebhookAPIView(APIView):
                 "received": True,
                 "processed": True,
                 "event_id": event.event_id,
-                "order_id": payment.order_id,
-                "order_status": payment.order.status,
+                "order_id": payment_model.order_id,
+                "order_status": payment_model.order.status,
                 "payment_status": payment.gateway_status,
                 "split": {
                     "gross_amount": str(payment.gross_amount),

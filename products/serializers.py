@@ -1,3 +1,7 @@
+from typing import Any, cast
+
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from products.models import (
@@ -121,6 +125,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         return resolve_product_display_price(obj, request)
 
+    @extend_schema_field(OpenApiTypes.DECIMAL)
     def get_price(self, obj: Product):
         return self._resolved_price(obj)["amount"]
 
@@ -168,6 +173,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         return resolve_product_display_price(obj, request)
 
+    @extend_schema_field(OpenApiTypes.DECIMAL)
     def get_price(self, obj: Product):
         return self._resolved_price(obj)["amount"]
 
@@ -182,7 +188,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
     def get_package_inserts(self, obj: Product) -> list[dict]:
         request = self.context.get("request")
-        inserts = list(obj.package_inserts.all())
+        inserts = list(cast(Any, obj).package_inserts.all())
         if not inserts:
             return []
 
@@ -196,7 +202,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         if not selected:
             selected = inserts[0]
         serialized = ProductPackageInsertSerializer(selected, context=self.context)
-        return [serialized.data]
+        return [cast(dict[str, Any], serialized.data)]
 
     class Meta:
         model = Product
@@ -399,7 +405,7 @@ class CartItemUpsertSerializer(serializers.Serializer):
         variation = None
         if variation_id is not None:
             variation = ProductVariation.objects.filter(id=variation_id).first()
-            if not variation or variation.product_id != product.id:
+            if not variation or cast(Any, variation).product_id != cast(Any, product).id:
                 raise serializers.ValidationError({"product_variation_id": "Variação inválida para este produto."})
 
         if attrs["quantity"] > product.stock:
