@@ -19,6 +19,15 @@ services:
     depends_on:
       - redis
 
+  beat:
+    build: .
+    container_name: ihealthbrasil-beat
+    command: celery -A config beat -l info
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
   redis:
     image: redis:7-alpine
     container_name: ihealthbrasil-redis

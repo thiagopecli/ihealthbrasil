@@ -103,7 +103,7 @@ Documentacao da API:
 - `CELERY_BROKER_URL=redis://redis:6379/0`
 - `CELERY_RESULT_BACKEND=redis://redis:6379/0`
 
-### 2) Subir API + worker + Redis
+### 2) Subir API + worker + beat + Redis
 
 ```bash
 docker compose up --build
@@ -113,7 +113,16 @@ Serviços:
 
 - `web`: Django + Gunicorn em `http://127.0.0.1:8000`
 - `worker`: Celery worker
+- `beat`: Celery Beat para tarefas agendadas
 - `redis`: broker/result backend para tarefas assíncronas
+
+Checagem rápida do stack:
+
+```bash
+docker compose ps
+```
+
+Você deve ver `web`, `worker`, `beat` e `redis` como `Up`.
 
 ## Sprint 8: Integrações Externas
 
