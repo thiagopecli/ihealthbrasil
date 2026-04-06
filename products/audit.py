@@ -2,9 +2,8 @@
 
 from typing import Any
 
-from config.observability import get_current_correlation_id, get_current_trace_id
-
 from accounts.models import User as DjangoUser
+from config.observability import get_current_correlation_id, get_current_trace_id
 from products.models import MedicalPrescription, PrescriptionAccessAudit
 
 

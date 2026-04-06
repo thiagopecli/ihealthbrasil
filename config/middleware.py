@@ -7,9 +7,9 @@ from django.http import HttpResponse
 
 from config.observability import (
     CORRELATION_ID_HEADER,
-    TRACEPARENT_HEADER,
-    TRACE_ID_HEADER,
     METRICS_REGISTRY,
+    TRACE_ID_HEADER,
+    TRACEPARENT_HEADER,
     bind_observability_context,
     build_traceparent,
     generate_correlation_id,
