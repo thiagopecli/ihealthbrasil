@@ -1,7 +1,12 @@
 import './App.css'
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import logoImg from './assets/Logo_ConnectHub_Branca.svg'
-import {useState, useEffect, useRef} from 'react';
-import {Search, ShoppingCart, MapPin, ChevronDown,} from 'lucide-react'
+import { useState, useEffect, useRef } from 'react';
+import { Search, ShoppingCart, MapPin, ChevronDown } from 'lucide-react'
+import 'swiper/css'
+import 'swiper/css/navigation'
+import 'swiper/css/pagination'
 
 function App() {
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -18,6 +23,14 @@ function App() {
       document.removeEventListener("mousedown", handleClickFora);
     };
   }, [langRef])
+
+  const banners = [
+    { id: 1, title: 'Promoção de Outono', color: '#e0f2f1'},
+    { id: 1, title: 'Novidades de Bem-Estas', color: '#e0f2f1'},
+    { id: 1, title: 'Entrega Rápida', color: '#e0f2f1'}
+  ];
+
+  const displayBanners = [...banners, ...banners, ...banners]
   
   return (
     <div className='app-container'>
@@ -77,21 +90,40 @@ function App() {
         </ul>
       )}
     </div>
-
       </div>
-      <main className='content'>
-        <div className='content-wrapper'>
-          <section className='main-banner'>
-            <h2>[imagem do banner aqui]</h2>
-          </section>
-          <section className='categories-preview'>
-          </section>
-        </div>
+
+      <section className='main-banner'>
+        <Swiper
+          modules={[Navigation, Pagination, Autoplay]}
+          slidesPerView={1.2}
+          centeredSlides={true}
+          spaceBetween={20}
+          loop={true}
+          loopedSlides={3}
+          loopAdditionalSlides={3}
+          speed={600}
+          pagination={{ clickable: true,
+            renderBullet: function (index, className){
+              if (index > 3) return "";
+              return `<span class"${className}"></span>`;
+            },
+           }}
+          navigation={true}
+          className="mySwiper"
+> 
+          {displayBanners.map((banner, index) => (
+            <SwiperSlide key={index}>
+              <div className='banner-item' style={{ backgroundColor: banner.color }}>
+                <h2>{banner.title}</h2>
+              </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </section>
         
         <div className='content-wrapper'>
           <h3>O que você procura?</h3>
         </div>
-      </main>
     </div>
   )
 }
