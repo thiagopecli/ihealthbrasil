@@ -5,9 +5,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
-from products.storage import PrivatePrescriptionStorage
-
-private_prescription_storage = PrivatePrescriptionStorage()
+from products.storage import PrivateMediaStorage
 
 
 class Category(models.Model):
@@ -593,7 +591,7 @@ class MedicalPrescription(models.Model):
         db_index=True,
     )
     file = models.FileField(
-        storage=private_prescription_storage,
+        storage=PrivateMediaStorage(),
         upload_to="prescriptions/%Y/%m/%d/",
         help_text="Arquivo da receita médica",
     )

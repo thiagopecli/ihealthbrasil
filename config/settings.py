@@ -1,6 +1,7 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urljoin
 
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
@@ -37,6 +38,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "rest_framework_simplejwt.token_blacklist",
+    "storages",
 ]
 
 MIDDLEWARE = [
@@ -87,6 +89,46 @@ DATABASES = {
     )
 }
 
+MEDIA_STORAGE_PROVIDER = os.getenv("MEDIA_STORAGE_PROVIDER", "local").lower()
+USE_CLOUD_MEDIA_STORAGE = MEDIA_STORAGE_PROVIDER == "s3"
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "").strip()
+AWS_PRIVATE_STORAGE_BUCKET_NAME = os.getenv("AWS_PRIVATE_STORAGE_BUCKET_NAME", AWS_STORAGE_BUCKET_NAME).strip()
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "sa-east-1").strip()
+AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN", "").strip()
+AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "").strip() or None
+AWS_PUBLIC_MEDIA_LOCATION = os.getenv("AWS_PUBLIC_MEDIA_LOCATION", "media").strip().strip("/")
+AWS_PRIVATE_MEDIA_LOCATION = os.getenv("AWS_PRIVATE_MEDIA_LOCATION", "private").strip().strip("/")
+AWS_S3_FILE_OVERWRITE = False
+
+if USE_CLOUD_MEDIA_STORAGE and not AWS_STORAGE_BUCKET_NAME:
+    raise ImproperlyConfigured("AWS_STORAGE_BUCKET_NAME precisa ser definido quando MEDIA_STORAGE_PROVIDER=s3.")
+
+if USE_CLOUD_MEDIA_STORAGE and not AWS_PRIVATE_STORAGE_BUCKET_NAME:
+    AWS_PRIVATE_STORAGE_BUCKET_NAME = AWS_STORAGE_BUCKET_NAME
+
+if USE_CLOUD_MEDIA_STORAGE:
+    public_media_domain = AWS_S3_CUSTOM_DOMAIN or f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+    MEDIA_URL = urljoin(f"https://{public_media_domain}/", "")
+else:
+    MEDIA_URL = "/media/"
+
+DEFAULT_FILE_STORAGE = (
+    "storages.backends.s3boto3.S3Boto3Storage"
+    if USE_CLOUD_MEDIA_STORAGE
+    else "django.core.files.storage.FileSystemStorage"
+)
+
+STORAGES = {
+    "default": {
+        "BACKEND": DEFAULT_FILE_STORAGE,
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -117,7 +159,6 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files (uploads de usuarios)
-MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 PRIVATE_MEDIA_ROOT = BASE_DIR / "private_media"
 PRESCRIPTION_SIGNED_URL_TTL_SECONDS = int(os.getenv("PRESCRIPTION_SIGNED_URL_TTL_SECONDS", "300"))

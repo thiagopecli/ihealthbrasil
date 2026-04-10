@@ -20,6 +20,7 @@ Construir uma base de API robusta com foco em:
 - drf-spectacular (OpenAPI/Swagger)
 - Stripe SDK (integração de pagamentos)
 - Celery + Redis (tarefas assíncronas)
+- django-storages + Amazon S3 para media em nuvem e URLs assinadas
 - Gunicorn (servidor WSGI para produção)
 - Docker + Docker Compose (deploy básico)
 - SQLite no desenvolvimento local
@@ -56,6 +57,8 @@ python -m pip install --upgrade pip
 ```bash
 python -m pip install -r requirements.txt
 ```
+
+Se for ativar storage em nuvem, configure também as credenciais do provedor antes de subir a aplicação.
 
 ### 3) Configurar variaveis de ambiente
 
@@ -101,6 +104,9 @@ Documentacao da API:
 - `DEBUG=False`
 - `ALLOWED_HOSTS=127.0.0.1,localhost`
 - `CSRF_TRUSTED_ORIGINS` com os domínios HTTPS do ambiente
+- `MEDIA_STORAGE_PROVIDER=local` no desenvolvimento ou `s3` em produção
+- `AWS_STORAGE_BUCKET_NAME` e `AWS_PRIVATE_STORAGE_BUCKET_NAME` quando usar S3
+- `AWS_S3_CUSTOM_DOMAIN` para entrega via CDN/public URL
 - `CELERY_BROKER_URL=redis://redis:6379/0`
 - `CELERY_RESULT_BACKEND=redis://redis:6379/0`
 
@@ -124,6 +130,29 @@ docker compose ps
 ```
 
 Você deve ver `web`, `worker`, `beat` e `redis` como `Up`.
+
+## Media em Nuvem e CDN
+
+Quando `MEDIA_STORAGE_PROVIDER=s3`, o backend passa a usar `django-storages` com S3.
+
+Configuração recomendada:
+
+```env
+MEDIA_STORAGE_PROVIDER=s3
+AWS_STORAGE_BUCKET_NAME=ihealthbrasil-public
+AWS_PRIVATE_STORAGE_BUCKET_NAME=ihealthbrasil-private
+AWS_S3_REGION_NAME=sa-east-1
+AWS_S3_CUSTOM_DOMAIN=cdn.ihealthbrasil.com
+AWS_PUBLIC_MEDIA_LOCATION=media
+AWS_PRIVATE_MEDIA_LOCATION=private
+PRESCRIPTION_SIGNED_URL_TTL_SECONDS=300
+```
+
+Uso esperado:
+
+- imagens e mídia pública ficam em bucket/CDN com URLs estáveis
+- receitas médicas usam storage privado com URLs assinadas temporárias
+- em desenvolvimento, o projeto continua com filesystem local por padrão
 
 ## Sprint 8: Integrações Externas
 
@@ -224,6 +253,12 @@ python manage.py test
 ```
 
 O schema OpenAPI do backend tambem foi ajustado para gerar menos ruido de enum e tipagem em `products`.
+
+Storage de mídia:
+
+- suporte a `django-storages` com S3 para uploads e mídia pública
+- storage privado de receitas com URLs assinadas e expiração configurável
+- fallback local mantido para desenvolvimento e testes
 
 Observabilidade adicionada:
 
@@ -436,10 +471,10 @@ Endpoint novo:
 
 ## Proximos passos sugeridos (foco producao)
 
-- concluir i18n na API e precificacao multimoeda
-- adicionar expiracao automatica de receitas via tarefa agendada
-- elevar observabilidade com `correlation_id`, metricas e alertas
-- expandir testes de integracao para fluxos criticos (checkout, webhook, prescricao)
+- consolidar tracing distribuido com stack externa (collector e exportadores), quando exigido pela infra
+- integrar alertas formais no monitoramento real com SLO/SLA e playbooks acionaveis
+- expandir testes de integracao para cenarios de falha e reconciliacao (checkout, webhook, prescricao)
+- reforcar governanca de release com protecoes obrigatorias na branch principal
 
 ## Artefatos da Sprint 03
 
