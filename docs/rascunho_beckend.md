@@ -20,12 +20,10 @@ O backend ja entrega o nucleo do produto:
 
 O que ainda impede considerar o sistema pronto para producao total:
 
-- i18n funcional na API com Accept-Language
-- precificacao multimoeda por pais/moeda
-- expiracao automatica de receitas com tarefa agendada
 - integracao externa de prescricao, se esta ainda for requisito de negocio
 - tracing distribuido completo com stack externa, se o ambiente exigir
 - alertas formais integrados ao monitoramento real
+- storage de media em nuvem/CDN para cargas publicas, se a operação ainda estiver em filesystem local
 
 ## Tabela resumo por sprint
 
@@ -37,7 +35,7 @@ O que ainda impede considerar o sistema pronto para producao total:
 | Sprint 3 | Concluida | 100% | i18n por Accept-Language, bulas com fallback e multimoeda por pais/moeda | Nenhuma pendencia aberta |
 | Sprint 4 | Concluida | 100% | Carrinho persistente (Cart/CartItem), endpoints de carrinho e checkout completo carrinho -> pedido | Nenhuma pendencia aberta |
 | Sprint 5 | Concluida | 100% | Upload, auditoria, aprovacao/rejeicao, storage privado e URL assinada temporaria | Nenhuma pendencia aberta |
-| Sprint 6 | Concluida | 100% | Gateway, customer, connected account e payment intent | Validacao operacional do gateway real |
+| Sprint 6 | Concluida | 100% | Gateway, customer, connected account e payment intent | Cobertura adicional de falhas, reconciliacao e estorno |
 | Sprint 7 | Concluida | 100% | Webhook seguro, idempotencia e split | Nenhuma pendencia aberta |
 | Sprint 8 | Concluida | 100% | Celery, SMS assíncrono, auditoria de notificacao, Memed, Celery Beat e email | Nenhuma pendencia aberta |
 | Sprint 9 | Concluida | 100% | Painel do fornecedor e extrato financeiro | Exportacoes e filtros extras, se precisar |
@@ -146,12 +144,11 @@ Ja foi feito:
 - sanitizacao de payloads sensiveis na auditoria
 - armazenamento privado de receita fora de media publica
 - URL assinada temporaria para download seguro
+- base pronta para mover media publica para S3/CDN sem alterar o fluxo de negocio
 
 Falta para producao:
 
-- job automatizado para marcar expiracao da receita
 - integracao com OCR/validacao automatica, se for requisito
-- notificacao por e-mail quando a receita for aprovada ou rejeitada
 
 ### Sprint 6 - Pagamento e split
 
@@ -236,12 +233,14 @@ Ja foi feito:
 - exemplos de payload em endpoints importantes
 - Docker e Docker Compose
 - hardening basico de producao no settings
+- configuracao de media preparada para backend em nuvem com storage privado/publico separado
 
 Falta para producao:
 
 - tracing distribuido completo com stack externa, se o ambiente exigir
 - alertas formais integrados ao monitoramento real
 - protecoes extras de borda, se houver API pública fora do gateway
+- validacao operacional final do bucket/CDN e politicas de acesso no ambiente cloud
 
 ### Sprint 11 - observabilidade e operacao
 
@@ -277,16 +276,15 @@ Se o criterio for manter o escopo atual do backend, o que ja esta pronto para su
 
 Prioridade alta:
 
-- expiracao automatica de receitas
-- i18n e multimoeda, se o roadmap continuar exigindo isso
-- observabilidade com correlation_id e metricas
+- tracing distribuido completo com stack externa, se o ambiente exigir
+- integracao com alertas do monitoramento real
+- cobertura de testes para cenarios de falha e reconciliacao em fluxos criticos
 
 Prioridade media:
 
 - export LGPD e politicas de retencao formalizadas no codigo
 - webhooks com monitoramento e conciliacao
-- healthcheck do Redis/broker
-- cobertura de testes para os gaps acima
+- protecoes obrigatorias na branch principal e fluxo de release
 
 Prioridade baixa, mas recomendada:
 

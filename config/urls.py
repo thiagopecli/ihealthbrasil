@@ -25,6 +25,6 @@ urlpatterns = [
     path("api/", include("products.urls")),
 ]
 
-# Servir media files em desenvolvimento
-if settings.DEBUG:
+# Servir media files em desenvolvimento apenas quando o storage é local
+if settings.DEBUG and not settings.USE_CLOUD_MEDIA_STORAGE:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
