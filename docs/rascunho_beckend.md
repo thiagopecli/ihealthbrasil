@@ -108,7 +108,7 @@ Ja foi feito:
 
 - i18n funcional na API com Accept-Language (LocaleMiddleware ativo)
 - bulas com selecao por idioma e fallback para pt_BR
-- traducao de mensagens principais de validacao para pt/en/es
+- traducao de mensagens principais de validacao para pt/en/es/fr
 - modelo ProductPrice por produto/pais/moeda
 - catalogo retornando preco contextual por cabecalho/query params
 - endpoint para gestao de precos multimoeda: /api/product-prices/
