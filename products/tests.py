@@ -127,6 +127,13 @@ class ProductsAPITests(APITestCase):
             content="Contenido del prospecto",
             requires_prescription_note=False,
         )
+        ProductPackageInsert.objects.create(
+            product=self.product,
+            language="fr_FR",
+            title="Notice Dipyrone",
+            content="Contenu de la notice",
+            requires_prescription_note=False,
+        )
 
         ProductPrice.objects.create(product=self.product, country_code="BR", currency="BRL", amount=Decimal("10.90"))
         ProductPrice.objects.create(product=self.product, country_code="US", currency="USD", amount=Decimal("2.10"))
@@ -238,6 +245,15 @@ class ProductsAPITests(APITestCase):
         self.assertEqual(response.data["price_country"], "ES")
         self.assertEqual(len(response.data["package_inserts"]), 1)
         self.assertEqual(response.data["package_inserts"][0]["language"], "es_ES")
+
+    def test_package_inserts_supports_french_language(self):
+        response = self.client.get(
+            f"/api/products/{self.product.slug}/package_inserts/",
+            HTTP_ACCEPT_LANGUAGE="fr-FR,fr;q=0.9",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["package_inserts"]), 1)
+        self.assertEqual(response.data["package_inserts"][0]["language"], "fr_FR")
 
     def test_variations_dosages_package_inserts_and_restrictions_filter_by_product_slug(self):
         variation_response = self.client.get(f"/api/variations/?product_slug={self.product.slug}")
@@ -753,6 +769,20 @@ class OrderPaymentIntentAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("currency", response.data)
         self.assertIn("Currency must contain letters only", response.data["currency"][0])
+
+    def test_invalid_currency_message_is_localized_in_french(self):
+        self.client.force_authenticate(user=self.patient)
+
+        response = self.client.post(
+            f"/api/orders/{self.order.id}/payment-intent/",
+            {"currency": "1$2"},
+            format="json",
+            HTTP_ACCEPT_LANGUAGE="fr-FR,fr;q=0.9",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("currency", response.data)
+        self.assertIn("La devise doit contenir uniquement des lettres", response.data["currency"][0])
 
 
 @override_settings(PAYMENT_WEBHOOK_SECRET=WEBHOOK_TEST_SECRET, CELERY_TASK_ALWAYS_EAGER=True)  # nosec B106

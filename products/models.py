@@ -201,6 +201,7 @@ class ProductPackageInsert(models.Model):
         ("pt_BR", "Português (Brasil)"),
         ("en_US", "Inglês (USA)"),
         ("es_ES", "Espanhol (Espanha)"),
+        ("fr_FR", "Frances (Franca)"),
     ]
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="package_inserts")

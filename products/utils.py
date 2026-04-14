@@ -18,6 +18,8 @@ LANGUAGE_TO_PACKAGE_INSERT = {
     "en-us": "en_US",
     "es": "es_ES",
     "es-es": "es_ES",
+    "fr": "fr_FR",
+    "fr-fr": "fr_FR",
 }
 
 API_MESSAGES = {
@@ -25,16 +27,19 @@ API_MESSAGES = {
         "pt": "Moeda deve conter apenas letras (ex.: brl, usd).",
         "en": "Currency must contain letters only (e.g.: brl, usd).",
         "es": "La moneda debe contener solo letras (ej.: brl, usd).",
+        "fr": "La devise doit contenir uniquement des lettres (ex. : brl, usd).",
     },
     "invalid_country": {
         "pt": "Pais deve conter exatamente 2 letras (ex.: BR, US).",
         "en": "Country must contain exactly 2 letters (e.g.: BR, US).",
         "es": "El pais debe contener exactamente 2 letras (ej.: BR, US).",
+        "fr": "Le pays doit contenir exactement 2 lettres (ex. : BR, US).",
     },
     "admin_only_action": {
         "pt": "Apenas admin pode executar esta acao.",
         "en": "Only admin can perform this action.",
         "es": "Solo admin puede realizar esta accion.",
+        "fr": "Seul un administrateur peut effectuer cette action.",
     },
 }
 
@@ -188,6 +193,8 @@ def get_localized_message(request, key: str) -> str:
         family = "en"
     elif language_tag.startswith("es"):
         family = "es"
+    elif language_tag.startswith("fr"):
+        family = "fr"
 
     messages = API_MESSAGES.get(key, {})
     return messages.get(family) or messages.get("pt") or key

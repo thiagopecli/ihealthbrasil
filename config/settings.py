@@ -149,6 +149,7 @@ LANGUAGES = [
     ("pt-br", _("Portuguese (Brazil)")),
     ("en-us", _("English (United States)")),
     ("es-es", _("Spanish (Spain)")),
+    ("fr-fr", _("French (France)")),
 ]
 TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
