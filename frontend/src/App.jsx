@@ -25,12 +25,43 @@ function App() {
   }, [langRef])
 
   const banners = [
-    { id: 1, title: 'Promoção de Outono', color: '#e0f2f1'},
-    { id: 1, title: 'Novidades de Bem-Estas', color: '#e0f2f1'},
-    { id: 1, title: 'Entrega Rápida', color: '#e0f2f1'}
+    { id: 1, title: 'Promoção de Outono', color: '#ffffff'},
+    { id: 1, title: 'Novidades de Bem-Estas', color: '#ffffff'},
+    { id: 1, title: 'Entrega Rápida', color: '#ffffff'}
   ];
 
   const displayBanners = [...banners, ...banners, ...banners]
+
+  const produtosDestaque = [
+    {
+      id: 1,
+      nome:"Vitamina C",
+      preco:"49,90",
+      categoria: "Suplementos",
+      imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
+    },
+    {
+      id: 2,
+      nome:"Ômega 3",
+      preco:"79,90",
+      categoria: "Saúde",
+      imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
+    },
+    {
+      id: 3,
+      nome:"Whey Protein",
+      preco:"129,90",
+      categoria: "Esporte",
+      imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
+    },
+    {
+      id: 4,
+      nome:"Magnésio Quelato",
+      preco:"35,00",
+      categoria: "Minerais",
+      imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
+    }
+  ];
   
   return (
     <div className='app-container'>
@@ -121,9 +152,31 @@ function App() {
         </Swiper>
       </section>
         
-        <div className='content-wrapper'>
-          <h3>O que você procura?</h3>
+      <section className='products-section'>
+        <div className='products-container'>
+          <div className='section-header'>
+            <h2>Produtos em Destaque</h2>
+            <a href="#" className='view-all'>Ver todos</a>
+          </div>
+
+          <div className='products-grid'>
+            {produtosDestaque.map((produto) => (
+              <div key={produto.id} className='product-card'>
+                <div className='product-image'>
+                  <img src={produto.imagem} alt={produto.nome} />
+                </div>
+                <div className='product-info'>
+                  <span className='product-category'>{produto.categoria}</span>
+                  <h3>{produto.nome}</h3>
+                  <p className='product-price'>R$ {produto.preco}</p>
+                  <button className='buy-button'>Comprar agora</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      </section>
+
     </div>
   )
 }
