@@ -62,7 +62,16 @@ function App() {
       imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
     }
   ];
+
+  const categorias = ["Todos", "Perfomance", "Força", "Energia", "Saúde"]
+
+  const [categoriaAtiva, setCategoriaAtiva] = useState("todos");
+
+  const produtosFiltrados = categoriaAtiva === "Todos"
+    ? produtosDestaque
+    : produtosDestaque.filter(p => p.categoria === categoriaAtiva);
   
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
   return (
     <div className='app-container'>
       <header className='main-header'>
@@ -87,15 +96,45 @@ function App() {
       </header>
 
       <div className='location-bar'>
-        <div className='delivery-info'>
-          <span>
-            Entregar em:
-          </span>
-              <strong>
-                São Paulo, SP
-                <MapPin size={20}/>
-                <ChevronDown size={20}/>
-              </strong>
+        <div className='subheader-left'>
+          <button className='open-filters-btn' onClick={() => setIsFilterOpen(true)}>
+            <span>☰</span> Filtros
+          </button>
+            {isFilterOpen && <div className='filter-overlay' onClick={() => setIsFilterOpen(false)}></div>}
+
+            <aside className={`filter-sidebar ${isFilterOpen ? 'open' : ''}`}>
+              <div className='sidebar-header'>
+                <h3>Filtros</h3>
+                <button className='close-btn' onClick={() => setIsFilterOpen(false)}>✕</button>
+              </div>
+
+              <div className='filter-groups'>
+                <h4>Categorias</h4>
+                  {categorias.map((cat) => (
+                    <button
+                    key={cat}
+                    className={`filter-link ${categoriaAtiva === cat ? 'active' : ''}`}
+                    onClick={() => {
+                      setCategoriaAtiva(cat);
+                      setIsFilterOpen(false);
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+              </div>
+            </aside>
+
+          <div className='delivery-info'>
+            <span>
+              Entregar em:
+            </span>
+                <strong>
+                  São Paulo, SP
+                  <MapPin size={20}/>
+                  <ChevronDown size={20}/>
+                </strong>
+          </div>
         </div>
 
         <nav className='category-menu'>
@@ -105,24 +144,26 @@ function App() {
           <a href="#">Promoções</a>
         </nav>
 
-    <div className='language-selector' ref={langRef} onClick={() => setIsLangOpen(!isLangOpen)}>
-        <div className='selected-lang'>
-          <span className='Flag'>🇧🇷</span>
-          <span>PT</span>
-          <ChevronDown size={14} className={isLangOpen ? 'rotate' : ''}/>
+        <div className='subheader-right'>            
+          <div className='language-selector' ref={langRef} onClick={() => setIsLangOpen(!isLangOpen)}>
+            <div className='selected-lang'>
+              <span className='Flag'>🇧🇷</span>
+              <span>PT</span>
+              <ChevronDown size={14} className={isLangOpen ? 'rotate' : ''}/>
+            </div>
+        
+
+          {isLangOpen && (
+            <ul className='lang-dropdown'>
+              <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇧🇷</span>Potuguês</li>
+              <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇺🇸</span>Inglês</li>
+              <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇪🇸</span>Espanhol</li>
+              <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇫🇷</span>Françês</li>
+            </ul>
+            )}
+          </div>
         </div>
-
-      {isLangOpen && (
-        <ul className='lang-dropdown'>
-          <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇧🇷</span>Potuguês</li>
-          <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇺🇸</span>Inglês</li>
-          <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇪🇸</span>Espanhol</li>
-          <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇫🇷</span>Françês</li>
-        </ul>
-      )}
-    </div>
-      </div>
-
+      </div>        
       <section className='main-banner'>
         <Swiper
           modules={[Navigation, Pagination, Autoplay]}
