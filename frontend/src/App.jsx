@@ -63,15 +63,33 @@ function App() {
     }
   ];
 
-  const categorias = ["Todos", "Perfomance", "Força", "Energia", "Saúde"]
+  const categorias = ["Todos", "Minerais", "Suplementos", "Esporte", "Saúde"]
 
-  const [categoriaAtiva, setCategoriaAtiva] = useState("todos");
+  const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
 
   const produtosFiltrados = categoriaAtiva === "Todos"
     ? produtosDestaque
-    : produtosDestaque.filter(p => p.categoria === categoriaAtiva);
+    : produtosDestaque.filter(produto => produto.categoria === categoriaAtiva);
   
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+
+  const [isVisible, setisVisible] = useState(true)
+  const [lastScrollY, setlastScrollY] = useState(0)
+
+  useEffect (() => {
+    const controlSubheader = () => {
+    if (window.scrollY > lastScrollY && window.scrollY > 100) {
+      setisVisible(false);  
+    } else {
+      setisVisible(true);
+    }
+    setlastScrollY(window.scrollY);
+  };
+  
+  window.addEventListener('scroll', controlSubheader);
+  return () => window.removeEventListener('scroll', controlSubheader);
+}, [lastScrollY]);
+
   return (
     <div className='app-container'>
       <header className='main-header'>
@@ -95,7 +113,7 @@ function App() {
         </div>
       </header>
 
-      <div className='location-bar'>
+      <div className={`subheader ${isVisible ? '' : 'hidden'}`}>
         <div className='subheader-left'>
           <button className='open-filters-btn' onClick={() => setIsFilterOpen(true)}>
             <span>☰</span> Filtros
@@ -201,7 +219,7 @@ function App() {
           </div>
 
           <div className='products-grid'>
-            {produtosDestaque.map((produto) => (
+            {produtosFiltrados.map((produto) => (
               <div key={produto.id} className='product-card'>
                 <div className='product-image'>
                   <img src={produto.imagem} alt={produto.nome} />
