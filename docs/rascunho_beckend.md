@@ -14,6 +14,7 @@ O backend ja entrega o nucleo do produto:
 - catalogo regulatorio de produtos de saude
 - prescricoes com auditoria LGPD
 - pagamentos com split e webhook
+- cotacao de frete via Correios no carrinho
 - notificacoes assicronas por SMS
 - painel do fornecedor e relatorios financeiros
 - CI, pre-commit, Docker e documentacao OpenAPI
@@ -40,6 +41,8 @@ O que ainda impede considerar o sistema pronto para producao total:
 | Sprint 8 | Concluida | 100% | Celery, SMS assíncrono, auditoria de notificacao, Memed, Celery Beat e email | Nenhuma pendencia aberta |
 | Sprint 9 | Concluida | 100% | Painel do fornecedor e extrato financeiro | Exportacoes e filtros extras, se precisar |
 | Sprint 10 | Concluida com gaps | 95% | OpenAPI, Docker, otimizações e hardening basico | tracing distribuido completo e alertas formais |
+| Sprint 11 | Concluida com gaps | 100% | Observabilidade, rate limiting, tracing contextual e métricas | tracing distribuído completo, se a stack externa ainda não estiver pronta |
+| Sprint 12 | Concluida | 100% | Cotacao de frete dos Correios no carrinho com provider mock/real configuravel | precisão maior de peso/dimensões, se o catálogo passar a modelar isso |
 
 Leitura rapida da tabela:
 
@@ -258,6 +261,21 @@ Ja foi feito:
 Falta para producao:
 
 - tracing distribuído completo, se a stack de infra já estiver disponível
+
+### Sprint 12 - frete Correios
+
+Status: concluida.
+
+Ja foi feito:
+
+- provider de frete com mock por padrão e provider real dos Correios ativável por ambiente
+- endpoint de cotação no carrinho: `POST /api/carts/shipping-quote/`
+- parâmetros configuráveis para CEP de origem, peso padrão e dimensões padrão da embalagem
+- resposta com múltiplos serviços e preços estimados para o cliente comparar
+
+Falta para producao:
+
+- modelagem de peso/dimensões por produto, se o catálogo precisar de cotações mais precisas
 - integração com alertas do monitoramento real
 
 ## O que ja esta pronto para producao

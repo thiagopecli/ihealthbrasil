@@ -19,6 +19,7 @@ Construir uma base de API robusta com foco em:
 - Simple JWT
 - drf-spectacular (OpenAPI/Swagger)
 - Stripe SDK (integração de pagamentos)
+- Integração de frete com Correios para cotação no carrinho
 - Celery + Redis (tarefas assíncronas)
 - django-storages + Amazon S3 para media em nuvem e URLs assinadas
 - Gunicorn (servidor WSGI para produção)
@@ -180,6 +181,30 @@ MEMED_API_BASE_URL=https://api.memed.com.br/v1
 ```
 
 No admin, após submeter um receita, use o action "Enviar para validacao Memed".
+
+### Frete com Correios
+
+Para cotação de frete no carrinho via provider real dos Correios:
+
+```env
+SHIPPING_PROVIDER=correios  # ou 'mock' para testes
+SHIPPING_ORIGIN_CEP=01001000
+SHIPPING_DEFAULT_ITEM_WEIGHT_KG=0.50
+SHIPPING_DEFAULT_PACKAGE_LENGTH_CM=20
+SHIPPING_DEFAULT_PACKAGE_HEIGHT_CM=10
+SHIPPING_DEFAULT_PACKAGE_WIDTH_CM=15
+CORREIOS_API_BASE_URL=https://ws.correios.com.br/calculador/CalcPrecoPrazo.aspx
+CORREIOS_ACCOUNT_CODE=
+CORREIOS_ACCOUNT_PASSWORD=
+CORREIOS_SERVICE_CODES=04014,04510
+CORREIOS_PACKAGE_FORMAT=1
+CORREIOS_CALCULATION_MODE=3
+```
+
+Endpoint de API:
+
+- `POST /api/carts/shipping-quote/` com `cep` e `service_codes` opcionais
+- a resposta retorna as opções de frete para o carrinho atual e o valor estimado por servico
 
 ### Email de Notificações
 

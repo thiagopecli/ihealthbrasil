@@ -554,6 +554,96 @@ class CartCheckoutAPITests(APITestCase):
         self.assertIn("quantity", response.data)
 
 
+@override_settings(SHIPPING_PROVIDER="mock", SHIPPING_ORIGIN_CEP="01001000")
+class ShippingQuoteAPITests(APITestCase):
+    """Testes da cotacao de frete por carrinho."""
+
+    def setUp(self):
+        user_model = get_user_model()
+        self.patient = user_model.objects.create_user(
+            username="shipping_patient",
+            email="shipping_patient@example.com",
+            profile=user_model.Profile.PATIENT,
+        )
+
+        self.provider = user_model.objects.create_user(
+            username="shipping_provider",
+            email="shipping_provider@example.com",
+            profile=user_model.Profile.PROVIDER,
+        )
+
+        self.category = Category.objects.create(name="Frete", description="Produtos para teste de frete")
+        self.product = Product.objects.create(
+            category=self.category,
+            provider=self.provider,
+            name="Produto Frete",
+            description="Produto base para teste de frete",
+            price=Decimal("39.90"),
+            requires_prescription=False,
+            stock=10,
+            sku="FRT-001",
+            is_active=True,
+        )
+
+    def test_shipping_quote_returns_options_for_cart(self):
+        self.client.force_authenticate(user=self.patient)
+
+        self.client.post(
+            "/api/carts/items/",
+            {
+                "product_id": self.product.id,
+                "quantity": 2,
+            },
+            format="json",
+        )
+
+        response = self.client.post(
+            "/api/carts/shipping-quote/",
+            {"cep": "01310-100"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["provider_name"], "mock")
+        self.assertEqual(response.data["origin_cep"], "01001000")
+        self.assertEqual(response.data["destination_cep"], "01310100")
+        self.assertEqual(len(response.data["services"]), 2)
+        self.assertEqual({service["service_code"] for service in response.data["services"]}, {"04014", "04510"})
+
+    def test_shipping_quote_rejects_invalid_cep(self):
+        self.client.force_authenticate(user=self.patient)
+
+        self.client.post(
+            "/api/carts/items/",
+            {
+                "product_id": self.product.id,
+                "quantity": 1,
+            },
+            format="json",
+        )
+
+        response = self.client.post(
+            "/api/carts/shipping-quote/",
+            {"cep": "123"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cep", response.data)
+
+    def test_shipping_quote_with_empty_cart_returns_400(self):
+        self.client.force_authenticate(user=self.patient)
+
+        response = self.client.post(
+            "/api/carts/shipping-quote/",
+            {"cep": "01310-100"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Carrinho vazio.")
+
+
 class MedicalPrescriptionAPITests(APITestCase):
     """Testes de upload e auditoria de receitas (Sprint 5)."""
 

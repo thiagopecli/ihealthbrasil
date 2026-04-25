@@ -423,6 +423,43 @@ class CartCheckoutSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
+class CartShippingQuoteRequestSerializer(serializers.Serializer):
+    """Payload para cotacao de frete do carrinho."""
+
+    cep = serializers.CharField(min_length=8, max_length=9)
+    service_codes = serializers.ListField(
+        child=serializers.CharField(max_length=10),
+        required=False,
+        allow_empty=False,
+    )
+
+
+class ShippingServiceQuoteSerializer(serializers.Serializer):
+    """Resposta individual de servico de frete."""
+
+    service_code = serializers.CharField()
+    service_name = serializers.CharField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    delivery_days = serializers.IntegerField(required=False, allow_null=True)
+    deadline = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    provider_name = serializers.CharField()
+    raw_response = serializers.JSONField(required=False, allow_null=True)
+
+
+class CartShippingQuoteResponseSerializer(serializers.Serializer):
+    """Resposta consolidada da cotacao de frete."""
+
+    provider_name = serializers.CharField()
+    origin_cep = serializers.CharField()
+    destination_cep = serializers.CharField()
+    package_weight_kg = serializers.DecimalField(max_digits=10, decimal_places=3)
+    package_length_cm = serializers.DecimalField(max_digits=10, decimal_places=2)
+    package_height_cm = serializers.DecimalField(max_digits=10, decimal_places=2)
+    package_width_cm = serializers.DecimalField(max_digits=10, decimal_places=2)
+    declared_value = serializers.DecimalField(max_digits=12, decimal_places=2)
+    services = ShippingServiceQuoteSerializer(many=True)
+
+
 class OrderItemSerializer(serializers.ModelSerializer):
     """Serializer para itens do pedido."""
 
