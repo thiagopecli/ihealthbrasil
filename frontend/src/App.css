@@ -59,6 +59,87 @@ body {
   color: var(--azul-petroleo);
 }
 
+.profile-container {
+  position: relative;
+  display: inline-block;
+}
+
+.profile-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: var(--azul-ciano);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: white;
+  font-weight: 600;
+  font-style: var(--azul-muito-claro);
+  position: relative;
+  z-index: 10;
+}
+
+.profile-btn:hover {
+  background-color: #00bfff;
+}
+
+.profile-btn .rotate {
+  transform: rotate(180deg);
+  transition: transform 0.3s;
+}
+
+.profile-btn .chevron-icon {
+  transition: transform 0.3s ease;
+}
+
+.profile-btn .rotate {
+  transform: rotate(180deg);
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%);
+  width: 100%;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  list-style: none;
+  padding: 8px 0;
+  padding-top: 20px;
+  margin: 0;
+  min-width: 180px;
+  z-index: 5;
+  animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.profile-dropdown li {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a5568;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.profile-dropdown li:hover {
+  background-color: #e7ecf0;
+}
+
+.profile-dropdown li.logout {
+  border-top: 1px solid #edf2f7;
+  color: #e53e3e;
+}
+
 .cart-btn {
   background-color: var(--azul-ciano) !important;
   color: white !important;
@@ -260,7 +341,7 @@ body {
 
 .rotate{
   transform: rotate(180deg) !important;
-  transition: 0.3s;
+  transition: 0.3s ease;
 }
 
 .flag {
@@ -284,6 +365,12 @@ body {
   min-width: 150px;
   padding: 8px 0;
   z-index: 9999;
+  transform-origin: top;
+  animation: slideDownSimple 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.language-selector .chevron-icon-lang {
+  transition: transform 0.3s ease;
 }
 
 .lang-dropdown li {
@@ -561,4 +648,26 @@ body {
     border: none;
     font-size: 20px;
     cursor: pointer;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(1);
+  }
+}
+
+@keyframes slideDownSimple {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
 }

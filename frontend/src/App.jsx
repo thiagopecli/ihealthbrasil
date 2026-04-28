@@ -3,7 +3,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import logoImg from './assets/Logo_ConnectHub_Branca.svg'
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, MapPin, ChevronDown } from 'lucide-react'
+import { Search, ShoppingCart, MapPin, ChevronDown, User } from 'lucide-react'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
@@ -17,10 +17,13 @@ function App() {
       if (langRef.current && !langRef.current.contains(event.target)) {
         setIsLangOpen(false)
       }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
+      }
     }
-    document.addEventListener("mousedown", handleClickFora);
+    document.addEventListener("click", handleClickFora, true);
     return () => {
-      document.removeEventListener("mousedown", handleClickFora);
+      document.removeEventListener("click", handleClickFora, true);
     };
   }, [langRef])
 
@@ -90,6 +93,9 @@ function App() {
   return () => window.removeEventListener('scroll', controlSubheader);
 }, [lastScrollY]);
 
+const [isProfileOpen, setIsProfileOpen] = useState(false);
+const profileRef = useRef(null);
+
   return (
     <div className='app-container'>
       <header className='main-header'>
@@ -105,7 +111,26 @@ function App() {
           <input type="text" placeholder='Pesquisar'/>
         </div>
         <div className='user-menu'>
-          <button className='login-btn'>Entrar</button>
+          <div className='profile-container' ref={profileRef}>
+            <button
+              className='profile-btn'
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              >
+                <User size={20}/>
+                <span>Olá, Emanuel</span>
+                <ChevronDown size={14} className={`chevron-icon ${isProfileOpen ? 'rotate' : ''}`} />
+              </button>
+
+              {isProfileOpen && (
+                <ul className='profile-dropdown'>
+                  <li>Meu Perfil</li>
+                  <li>Meus Pedidos</li>
+                  <li>Favoritos</li>
+                  <li className='logout'>Sair</li>
+                </ul>
+              )}
+          </div>
+
           <button className='cart-btn'>
             <ShoppingCart size={20}/>
             Seu carrinho
@@ -167,7 +192,7 @@ function App() {
             <div className='selected-lang'>
               <span className='Flag'>🇧🇷</span>
               <span>PT</span>
-              <ChevronDown size={14} className={isLangOpen ? 'rotate' : ''}/>
+              <ChevronDown size={14} className={`chevron-icon-lang ${isLangOpen ? 'rotate' : ''}`}/>
             </div>
         
 
