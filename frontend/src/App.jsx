@@ -7,6 +7,7 @@ import { Search, ShoppingCart, MapPin, ChevronDown, User } from 'lucide-react'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 
 function App() {
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -96,7 +97,11 @@ function App() {
 const [isProfileOpen, setIsProfileOpen] = useState(false);
 const profileRef = useRef(null);
 
+const [isUserSidebarOpen, setIsUserSidebarOpen] = useState(false);
+const [sidebarContent, setSidebarContent] = useState('');
+
   return (
+  <Router>
     <div className='app-container'>
       <header className='main-header'>
         <div className='logo-area'>
@@ -123,9 +128,23 @@ const profileRef = useRef(null);
 
               {isProfileOpen && (
                 <ul className='profile-dropdown'>
-                  <li>Meu Perfil</li>
-                  <li>Meus Pedidos</li>
-                  <li>Favoritos</li>
+                  <li onClick={() => setIsProfileOpen(false)}>
+                    <Link to="/perfil" style={{ textDecoration: 'none', color: 'inherit' }}>
+                      Meu Perfil
+                    </Link>
+                  </li>
+                  <li onClick={() => {
+                    setSidebarContent('pedidos');
+                    setIsUserSidebarOpen(true);
+                    setIsProfileOpen(false);
+                  }}>Meus Pedidos
+                  </li>
+                  <li onClick={() => {
+                    setSidebarContent('favoritos');
+                    setIsUserSidebarOpen(true);
+                    setIsProfileOpen(false);
+                  }}>Favoritos
+                  </li>
                   <li className='logout'>Sair</li>
                 </ul>
               )}
@@ -138,11 +157,15 @@ const profileRef = useRef(null);
         </div>
       </header>
 
+    <Routes>
+      <Route path='/' element={
+        <>
       <div className={`subheader ${isVisible ? '' : 'hidden'}`}>
         <div className='subheader-left'>
           <button className='open-filters-btn' onClick={() => setIsFilterOpen(true)}>
             <span>☰</span> Filtros
           </button>
+
             {isFilterOpen && <div className='filter-overlay' onClick={() => setIsFilterOpen(false)}></div>}
 
             <aside className={`filter-sidebar ${isFilterOpen ? 'open' : ''}`}>
@@ -260,9 +283,73 @@ const profileRef = useRef(null);
           </div>
         </div>
       </section>
+      </>
+    } />
 
+      <Route path='/perfil' element={<ProfilePage />} />
+    </Routes>
+
+      {isUserSidebarOpen && <div className='filter-overlay' onClick={() => setIsUserSidebarOpen(false)}></div>}
+
+      <aside className={`user-sidebar ${isUserSidebarOpen ? 'open' : ''}`}>
+        <div className='sidebar-header'>
+          <h3>{sidebarContent === 'pedidos' ? 'Meus Pedidos' : 'Meus Favoritos'}</h3>
+          <button className='close-btn' onClick={() => setIsUserSidebarOpen(false)}>✕</button>
+        </div>
+
+        <div className='sidebar-body'>
+          {sidebarContent === 'pedidos' ? (
+            <div className='empty-state'>
+              <p>Você ainda não tem pedidos recentes.</p>
+              <button className='buy-button' onClick={() => setIsUserSidebarOpen (false)}>Explorar Loja</button>
+            </div>
+          ) : (
+            <div className='empty-state'>
+              <p>Sua lista de favoritos está vazia.</p>
+            </div>
+          )}
+        </div>
+      </aside>
     </div>
+  </Router>
   )
 }
 
+function ProfilePage() {
+  return (
+    <div className="profile-page-container">
+      <div className="profile-card">
+        <div className="profile-header">
+          <div className="profile-avatar">
+            <User size={40} color="#0090C1" />
+          </div>
+          <div className="profile-info">
+            <h1>Emanuel</h1>
+            <span>Membro desde Abril 2026</span>
+          </div>
+        </div>
+
+        <div className="profile-details">
+          <div className="detail-group">
+            <label>E-mail</label>
+            <p>emanuel@gmail.com</p>
+          </div>
+          <div className="detail-group">
+            <label>Telefone</label>
+            <p>(10) 12345-6789</p>
+          </div>
+          <div className="detail-group">
+            <label>Endereço Principal</label>
+            <p>Rua Exemplo, 123 - Campina Grande, PB</p>
+          </div>
+        </div>
+
+        <div className="profile-actions">
+          <button className="edit-profile-btn">Editar Perfil</button>
+          <Link to="/" className="back-home-link">← Voltar para a loja</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 export default App
