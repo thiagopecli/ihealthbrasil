@@ -16,7 +16,7 @@
 }
 
 body {
-  background-color:  var(--azul-muito-claro) !important;
+  background-color:  var(--azul-muito-claro);
   margin: 0;
 }
 
@@ -96,10 +96,6 @@ body {
   transition: transform 0.3s ease;
 }
 
-.profile-btn .rotate {
-  transform: rotate(180deg);
-}
-
 .profile-dropdown {
   position: absolute;
   top: 50%;
@@ -151,7 +147,6 @@ body {
   align-items: center !important;
   cursor: pointer;
   transition: 0.3s;
-  display: flex !important;
   gap: 8px !important;
 }
 
@@ -161,9 +156,7 @@ body {
 
 .logo-img {
   height: 50px;
-  width: auto;
   display: block;
-  max-width: 200px;
 }
 
 .logo-area {
@@ -253,22 +246,6 @@ body {
   opacity: 1;
   background-color: rgba(225, 225, 225, 0.1);
   transform: translateY(-1px);
-}
-
-.category-menu a::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: -2px;
-  left: 0;
-  background-color: #00b4ed;
-  transition: width 0.3 ease;
-  display: none;
-}
-
-.category-menu a:hover::after {
-  width: 100%;
 }
 
 .delivery-info {
@@ -474,19 +451,16 @@ body {
 }
 
 .product-card {
-  transition: all 0.3s ease-in-out;
   background: white;
   border-radius: 20px;
   width: 100%;
   max-width: 280px;
   padding: 20px;
   transition: transform 0.3s ease, box-shadow 0.3 ease;
-  border: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin: 0;
 }
 
 .product-card:hover {
@@ -509,7 +483,6 @@ body {
 
 .product-image img {
   width: 140px;
-  max-width: 140px;
   object-fit: contain;
 }
 
@@ -554,6 +527,91 @@ body {
 .buy-button:hover {
   background-color: #0077a0;
   transform: scale(1.02);
+}
+
+.fav-btn {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.fav-btn:hover {
+  transform: scale(1.1);
+}
+
+.fav-btn svg {
+  color: #cbd5e0;
+  transition: color 0.3s ease;
+}
+
+.fav-btn.active svg {
+  color: var(--vermelho-off);
+}
+
+.favoritos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 10px 0;
+}
+
+.fav-item-sidebar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 12px;
+  position: relative;
+  border: 1px solid #edf2f7;
+}
+
+.fav-item-sidebar img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  background: white;
+  border-radius: 8px;
+}
+
+.fav-item-info h4 {
+  font-size: 14px;
+  color: var(--azul-petroleo);
+  margin-bottom: 4px;
+}
+
+.fav-item-info p {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--azul-ciano);
+}
+
+.remove-fav {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #a0aec0;
+  cursor: pointer;
+  font-size: 12px;
+  transition: color 0.2s;
+}
+
+.remove-fav:hover {
+  color: var(--vermelho-off);
 }
 
 .open-filters-btn {
@@ -690,6 +748,62 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  gap: 30px;
+}
+
+.profile-sidebar {
+  background: white;
+  width: 250px;
+  padding: 25px;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+.profile-tabs-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.tab-btn {
+  padding: 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  color: #718096;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.tab-btn:hover {
+  background: var(--azul-muito-claro);
+  color: var(--azul-ciano);
+}
+
+.tab-btn.active {
+  background: var(--azul-ciano);
+  color: white;
+}
+
+.profile-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  margin-top: 5px;
+}
+
+.profile-input:focus {
+  border-color: var(--azul-ciano);
+  outline: none;
+}
+
+.tab-section {
+  animation: fadeIn 0.3s ease;
 }
 
 .profile-card {
@@ -701,11 +815,13 @@ body {
   box-shadow: 0 10px 25px rgba(0,0,0,0.05);
 }
 
-.profile-header {
+.profile-header-sidebar {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 20px;
-  margin-bottom: 30px;
+  gap: 10px;
+  margin-bottom: 20px;
+  text-align: center;
 }
 
 .profile-avatar {
@@ -799,4 +915,9 @@ body {
     opacity: 1;
     transform: scaleY(1);
   }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }

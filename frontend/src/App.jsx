@@ -3,11 +3,12 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import logoImg from './assets/Logo_ConnectHub_Branca.svg'
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, MapPin, ChevronDown, User } from 'lucide-react'
+import { Search, ShoppingCart, MapPin, ChevronDown, User, Heart } from 'lucide-react'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import ProfilePage from './ProfilePage';
 
 function App() {
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -30,8 +31,8 @@ function App() {
 
   const banners = [
     { id: 1, title: 'Promoção de Outono', color: '#ffffff'},
-    { id: 1, title: 'Novidades de Bem-Estas', color: '#ffffff'},
-    { id: 1, title: 'Entrega Rápida', color: '#ffffff'}
+    { id: 2, title: 'Novidades de Bem-Estas', color: '#ffffff'},
+    { id: 3, title: 'Entrega Rápida', color: '#ffffff'}
   ];
 
   const displayBanners = [...banners, ...banners, ...banners]
@@ -96,9 +97,29 @@ function App() {
 
 const [isProfileOpen, setIsProfileOpen] = useState(false);
 const profileRef = useRef(null);
-
 const [isUserSidebarOpen, setIsUserSidebarOpen] = useState(false);
 const [sidebarContent, setSidebarContent] = useState('');
+
+const [favoritos, setFavoritos] = useState(() => {
+  const salvos = localStorage.getItem('@ConnectHub:favoritos');
+  return salvos ? JSON.parse(salvos) : [];
+});
+
+useEffect(() => {
+  localStorage.setItem('@ConnectHub:favoritos', JSON.stringify(favoritos));
+}, [favoritos]);
+
+const toggleFavorito = (produto) => {
+  setFavoritos((prev) => {
+    const jaFavoritado = prev.find (item => item.id === produto.id)
+
+    if (jaFavoritado) {
+      return prev.filter(item => item.id !== produto.id);
+    } else {
+      return [...prev, produto]
+    }
+  })
+}
 
   return (
   <Router>
@@ -271,6 +292,12 @@ const [sidebarContent, setSidebarContent] = useState('');
               <div key={produto.id} className='product-card'>
                 <div className='product-image'>
                   <img src={produto.imagem} alt={produto.nome} />
+                  <button 
+                    className={`fav-btn ${favoritos.some(f => f.id === produto.id) ? 'active' : ''}`}
+                    onClick={() => toggleFavorito(produto)}
+                    >
+                     <Heart size={25} fill={favoritos.some(f => f.id === produto.id) ? "var(--vermelho-off)" : "none"}/> 
+                  </button>
                 </div>
                 <div className='product-info'>
                   <span className='product-category'>{produto.categoria}</span>
@@ -303,53 +330,35 @@ const [sidebarContent, setSidebarContent] = useState('');
               <p>Você ainda não tem pedidos recentes.</p>
               <button className='buy-button' onClick={() => setIsUserSidebarOpen (false)}>Explorar Loja</button>
             </div>
-          ) : (
+          ) : ( 
+            <div className='favoritos-list'>
+              {favoritos.length > 0 ? (
+                favoritos.map((item) => (
+                  <div key={item.id} className='fav-item-sidebar'>
+                    <img src={item.imagem} alt={item.nome} />
+                    <div className='fav-item-info'>
+                      <h4>{item.nome}</h4>
+                      <p>R$ {item.preco}</p>
+                    </div>
+                    <button className='remove-fav'
+                      onClick={() => toggleFavorito(item)}
+                      title='Remover dos favoritos'
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))
+              ) : (
             <div className='empty-state'>
               <p>Sua lista de favoritos está vazia.</p>
             </div>
+          )}
+          </div>
           )}
         </div>
       </aside>
     </div>
   </Router>
   )
-}
-
-function ProfilePage() {
-  return (
-    <div className="profile-page-container">
-      <div className="profile-card">
-        <div className="profile-header">
-          <div className="profile-avatar">
-            <User size={40} color="#0090C1" />
-          </div>
-          <div className="profile-info">
-            <h1>Emanuel</h1>
-            <span>Membro desde Abril 2026</span>
-          </div>
-        </div>
-
-        <div className="profile-details">
-          <div className="detail-group">
-            <label>E-mail</label>
-            <p>emanuel@gmail.com</p>
-          </div>
-          <div className="detail-group">
-            <label>Telefone</label>
-            <p>(10) 12345-6789</p>
-          </div>
-          <div className="detail-group">
-            <label>Endereço Principal</label>
-            <p>Rua Exemplo, 123 - Campina Grande, PB</p>
-          </div>
-        </div>
-
-        <div className="profile-actions">
-          <button className="edit-profile-btn">Editar Perfil</button>
-          <Link to="/" className="back-home-link">← Voltar para a loja</Link>
-        </div>
-      </div>
-    </div>
-  );
 }
 export default App
