@@ -776,6 +776,9 @@ body {
   color: #718096;
   cursor: pointer;
   transition: 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .tab-btn:hover {
@@ -893,6 +896,81 @@ body {
   color: #718096;
   font-size: 14px;
   font-weight: 600;
+}
+
+.config-group {
+  margin-top: 25px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #edf2f7;
+}
+
+.config-group h3 {
+  font-size: 16px;
+  color: var(--azul-petroleo);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.config-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.config-item:last-child {
+  border-bottom: none;
+}
+
+.config-item span {
+  font-size: 14px;
+  color: #4a5568;
+}
+
+.danger-zone {
+  border: 1px solid #fed7d7;
+  background: #fff5f5;
+}
+
+.danger-zone h3 {
+  color: #c53030;
+}
+
+.danger-zone p {
+  font-size: 12px;
+  color: #742a2a;
+  margin-bottom: 15px;
+}
+
+.delete-account-btn {
+  background-color: #e53e3e;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.3s;
+}
+
+.delete-account-btn:hover {
+  background-color: #c53030;
+}
+
+.toggle-pass-btn {
+  background: none;
+  border: none;
+  color: var(--azul-ciano);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  margin-top: 5px;
 }
 
 @keyframes slideDown {

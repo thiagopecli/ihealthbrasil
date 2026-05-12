@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { User } from 'lucide-react';
+import { User, Bell, Trash2, Shield, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function ProfilePage() {
   const [activeTab, setActiveTab] = useState('dados');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Dados com fallback (caso o localStorage esteja vazio)
+  const [configs, setConfigs] = useState ({
+    notificacoesEmail: true,
+    notificacoesSms: false,
+    perfilPiblico: true
+  })
+
   const [userData, setUserData] = useState(() => {
     const salvos = localStorage.getItem('@ConnectHub:userData');
     return salvos ? JSON.parse(salvos) : {
@@ -23,6 +28,10 @@ function ProfilePage() {
     const { name, value } = e.target;
     setUserData(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleConfigChange = (name) => {
+    setConfigs(prev => ({ ...prev, [name]: !prev[name] }))
+  }
 
   const handleSave = () => {
   const dadosAntigos = JSON.parse(localStorage.getItem('@ConnectHub:userData'));
@@ -52,7 +61,6 @@ function ProfilePage() {
             <User size={40} color="#0090C1" />
           </div>
           <div className="profile-info">
-            {/* Uso de interrogação para evitar erro se o nome sumir */}
             <h1>{userData?.nome?.split(' ')[0] || 'Usuário'}</h1>
             <span>Membro desde 2026</span>
           </div>
@@ -64,6 +72,9 @@ function ProfilePage() {
           </button>
           <button className={`tab-btn ${activeTab === 'seguranca' ? 'active' : ''}`} onClick={() => setActiveTab('seguranca')}>
             Segurança
+          </button>
+          <button className={`tab-btn ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>
+            Configurações
           </button>
         </nav>
       </aside>
@@ -94,7 +105,6 @@ function ProfilePage() {
     <h2>Segurança</h2>
     <div className="profile-details" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
       
-      {/* CAMPO DE SENHA ATUAL PARA VERIFICAÇÃO */}
       <div className="detail-group">
         <label>Senha Atual</label>
         <input 
@@ -139,6 +149,32 @@ function ProfilePage() {
         style={{ background: 'none', border: 'none', color: '#0090C1', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', fontSize: '12px' }}
       >
         {showPassword ? "Esconder senhas" : "Ver senhas digitadas"}
+      </button>
+    </div>
+  </div>
+)}
+
+{activeTab === 'config' && (
+  <div className='tab-section'>
+    <h2>Configurações da Conta</h2>
+
+    <div className='config-group'>
+      <h3><Bell size={18}/>Notificações</h3>
+      <div className='config-item'>
+        <span>Receber E-mails</span>
+        <input type="checkbox" checked={configs.notificacoesEmail} onChange={() => handleConfigChange('notificacoesEmail')} />
+      </div>
+      <div className='config-item'>
+        <span>Receber Sms</span>
+        <input type="checkbox" checked={configs.notificacoesSms} onChange={() => handleConfigChange('notificacoesSms')} />
+      </div>
+    </div>
+
+    <div className='config-group danger-zone'>
+      <h3><Trash2 size={18}/>Deletar conta</h3>
+      <p>Uma vez que deletar sua conta, não poderá recuperá-la, certeza?</p>
+      <button className='delete-account-btn' onClick={() => alert('Em desenvolvimento')}>
+        Excluir minha conta
       </button>
     </div>
   </div>
