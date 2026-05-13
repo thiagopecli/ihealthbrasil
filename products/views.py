@@ -51,6 +51,8 @@ from products.payments import PaymentGatewayError, get_payment_gateway
 from products.permissions import IsAdminOrReadOnly, IsProviderOrAdminProfile
 from products.serializers import (
     CartCheckoutSerializer,
+    CartShippingQuoteRequestSerializer,
+    CartShippingQuoteResponseSerializer,
     CartItemUpsertSerializer,
     CartSerializer,
     CategorySerializer,
@@ -74,6 +76,7 @@ from products.serializers import (
     ProductVariationSerializer,
     SalesRestrictionSerializer,
 )
+from products.shipping import ShippingProviderError, get_shipping_provider
 from products.tasks import enqueue_order_status_sms
 from products.utils import (
     build_prescription_download_token,
@@ -648,6 +651,56 @@ class CartViewSet(viewsets.ViewSet):
 
         order_output = OrderDetailSerializer(order, context={"request": request})
         return Response(order_output.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="shipping-quote")
+    @extend_schema(
+        request=CartShippingQuoteRequestSerializer,
+        responses={200: CartShippingQuoteResponseSerializer},
+    )
+    def shipping_quote(self, request):
+        """Consulta valor de frete para o carrinho atual via Correios."""
+        payload_serializer = CartShippingQuoteRequestSerializer(data=request.data)
+        payload_serializer.is_valid(raise_exception=True)
+        payload_data = cast(dict[str, Any], payload_serializer.validated_data)
+
+        cart = self._get_or_create_cart(request.user)
+        if not cart.items.exists():
+            return Response({"detail": "Carrinho vazio."}, status=status.HTTP_400_BAD_REQUEST)
+
+        provider = get_shipping_provider()
+        try:
+            shipping_quote = provider.quote_cart(
+                cart=cart,
+                destination_cep=cast(str, payload_data["cep"]),
+                service_codes=payload_data.get("service_codes"),
+            )
+        except ShippingProviderError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_payload = {
+            "provider_name": shipping_quote.provider_name,
+            "origin_cep": shipping_quote.origin_cep,
+            "destination_cep": shipping_quote.destination_cep,
+            "package_weight_kg": shipping_quote.package_weight_kg,
+            "package_length_cm": shipping_quote.package_length_cm,
+            "package_height_cm": shipping_quote.package_height_cm,
+            "package_width_cm": shipping_quote.package_width_cm,
+            "declared_value": shipping_quote.declared_value,
+            "services": [
+                {
+                    "service_code": service.service_code,
+                    "service_name": service.service_name,
+                    "price": service.price,
+                    "delivery_days": service.delivery_days,
+                    "deadline": service.deadline,
+                    "provider_name": service.provider_name,
+                    "raw_response": service.raw_response,
+                }
+                for service in shipping_quote.services
+            ],
+        }
+        response_serializer = CartShippingQuoteResponseSerializer(response_payload)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 class OrderViewSet(viewsets.ModelViewSet):
