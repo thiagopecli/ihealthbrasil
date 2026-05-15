@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { User, Bell, Trash2, Shield, Settings } from 'lucide-react';
+import { User, Bell, Trash2, Shield, Settings, Camera } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import './ProfilePage.css'
 
 function ProfilePage() {
   const [activeTab, setActiveTab] = useState('dados');
@@ -19,6 +20,7 @@ function ProfilePage() {
       email: 'exemplo@email.com',
       telefone: '(12) 93456-7890',
       endereco: 'Rua Exemplo, 123 - Campina Grande, PB',
+      foto: null,
       novaSenha: '',
       confirmarSenha: ''
     };
@@ -33,23 +35,67 @@ function ProfilePage() {
     setConfigs(prev => ({ ...prev, [name]: !prev[name] }))
   }
 
+const handlePhotoChange = (e) => {
+  const file = e.target.files[0];
+
+  if (file) {
+    if (file.size > 2097152) {
+      alert("A foto é muito pesada! Escolha uma de até 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    
+    reader.onloadend = () => {
+      const fotoUsuario = reader.result;
+
+      if (fotoUsuario) {
+        setUserData(prev => ({ ...prev, foto: fotoUsuario }));
+
+        const dadosNoStorage = localStorage.getItem('@ConnectHub:userData');
+        const objetoCompleto = dadosNoStorage ? JSON.parse(dadosNoStorage) : userData;
+
+        const novosDadosParaSalvar = { ...objetoCompleto, foto: fotoUsuario };
+        
+        localStorage.setItem('@ConnectHub:userData', JSON.stringify(novosDadosParaSalvar));
+        console.log("Foto salva! 📸");
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+const handleRemovePhoto = () => {
+  if (window.confirm("tem certeza que deseja remover sua foto de perfil?")){
+    setUserData(prev => ({ ...prev, foto: null }));
+
+    const dadosNoStorage = localStorage.getItem('@Connecthub:userData');
+    const objetosParaLimpar = dadosNoStorage ? JSON.parse(dadosNoStorage) : userData;
+    const novosDadosSemFoto = { ...objetosParaLimpar, foto: null }
+
+    localStorage.setItem('@ConnectHub:userData', JSON.stringify(novosDadosSemFoto));
+    alert("Foto removida!")
+  }
+}
+
   const handleSave = () => {
   const dadosAntigos = JSON.parse(localStorage.getItem('@ConnectHub:userData'));
   const senhaGravada = dadosAntigos?.novaSenha || '123456';
 
-  if (userData.senhaAtual !== senhaGravada) {
-    alert("A 'Senha Atual' está incorreta! Não podemos salvar as alterações.");
-    return;
-  }
+  if (userData.senhaAtual || userData.novaSenha) {
+    if (userData.senhaAtual !== senhaGravada) {
+      alert("A 'Senha Atual' está incorreta!");
+      return;
+    }
 
-  if (userData.novaSenha !== userData.confirmarSenha) {
-    alert("As novas senhas não coincidem!");
-    return;
+    if (userData.novaSenha !== userData.confirmarSenha) {
+      alert("As novas senhas não coincidem!");
+      return;
+    }
   }
 
   localStorage.setItem('@ConnectHub:userData', JSON.stringify(userData));
   alert("Alterações salvas com sucesso! ✅");
-  
   setUserData(prev => ({ ...prev, senhaAtual: '', novaSenha: '', confirmarSenha: '' }));
 };
 
@@ -57,8 +103,24 @@ function ProfilePage() {
     <div className="profile-page-container" style={{ paddingTop: '120px' }}>
       <aside className="profile-sidebar">
         <div className="profile-header-sidebar">
-          <div className="profile-avatar">
-            <User size={40} color="#0090C1" />
+          <div className="profile-avatar-container">
+            <div className="profile-avatar">
+              {userData.foto ? (
+                <img src={userData.foto} alt="perfil" />
+                ) : (
+                <User size={40} color="#0090C1" />
+              )}
+            </div>
+            <label htmlFor="upload-foto" className="upload-label">
+              <Camera size={16} />
+            </label>
+            <input type="file" id="upload-foto" hidden onChange={handlePhotoChange} accept="image/*" />
+
+            {userData.foto && (
+              <button className='remove-photo-btn' onClick={handleRemovePhoto} title='Remover foto'>
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
           <div className="profile-info">
             <h1>{userData?.nome?.split(' ')[0] || 'Usuário'}</h1>
@@ -83,7 +145,7 @@ function ProfilePage() {
         {activeTab === 'dados' && (
           <div className="tab-section">
             <h2>Meus Dados</h2>
-            <div className="profile-details" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+            <div className="profile-details">
               <div className="detail-group">
                 <label>Nome Completo</label>
                 <input className="profile-input" name="nome" value={userData.nome} onChange={handleChange} />
@@ -103,7 +165,7 @@ function ProfilePage() {
         {activeTab === 'seguranca' && (
   <div className="tab-section">
     <h2>Segurança</h2>
-    <div className="profile-details" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+    <div className="profile-details">
       
       <div className="detail-group">
         <label>Senha Atual</label>
