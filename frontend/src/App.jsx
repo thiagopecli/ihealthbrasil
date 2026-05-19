@@ -121,6 +121,23 @@ const toggleFavorito = (produto) => {
   })
 }
 
+  const [nomeUsuario, setNomeUsuario] = useState('Usuário');
+  
+  useEffect(() => {
+    const dados = localStorage.getItem('@ConnectHub:userData');
+    if (dados) {
+      const objetoDados = JSON.parse(dados);
+      if (objetoDados.nome) {
+        setNomeUsuario(objetoDados.nome.split(' ')[0]);
+      }
+    }
+
+    carregarNome();
+
+    window.addEventListener('storage', carregarNome);
+    return () => window.removeEventListener('storage', carregarNome);
+  }, []);
+
   return (
   <Router>
     <div className='app-container'>
@@ -143,7 +160,7 @@ const toggleFavorito = (produto) => {
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               >
                 <User size={20}/>
-                <span>Olá, Emanuel</span>
+                <span>Olá, {nomeUsuario}</span>
                 <ChevronDown size={14} className={`chevron-icon ${isProfileOpen ? 'rotate' : ''}`} />
               </button>
 

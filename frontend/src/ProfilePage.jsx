@@ -16,10 +16,10 @@ function ProfilePage() {
   const [userData, setUserData] = useState(() => {
     const salvos = localStorage.getItem('@ConnectHub:userData');
     return salvos ? JSON.parse(salvos) : {
-      nome: 'Emanuel Vittor',
-      email: 'exemplo@email.com',
-      telefone: '(12) 93456-7890',
-      endereco: 'Rua Exemplo, 123 - Campina Grande, PB',
+      nome: '',
+      email: '',
+      telefone: '',
+      endereco: '',
       foto: null,
       novaSenha: '',
       confirmarSenha: ''
@@ -28,7 +28,12 @@ function ProfilePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserData(prev => ({ ...prev, [name]: value }));
+      if (name === "telefone") {
+        const valorComMascara = maskPhone(value);
+        setUserData(prev => ({ ...prev, [name]: valorComMascara }));
+      } else {
+        setUserData(prev => ({ ...prev, [name]: value }));
+      }
   };
 
   const handleConfigChange = (name) => {
@@ -99,6 +104,29 @@ const handleRemovePhoto = () => {
   setUserData(prev => ({ ...prev, senhaAtual: '', novaSenha: '', confirmarSenha: '' }));
 };
 
+const maskPhone = (value) => {
+  if (!value) return "";
+
+  let numbers = value.replace(/\D/g, "");
+
+  numbers = numbers.slice(0, 11)
+
+  if (numbers.length <= 2) {
+    return numbers.replace(/(\d{1,2})/, "($1");
+  }
+  
+  if (numbers.length <= 6) {
+    return numbers.replace(/(\d{2})(\d{1,4}), "($1) $2"/)
+  }
+
+  if (numbers.length <= 10) {
+    return numbers.replace(/(\d{2})(\d{4})(\d{1,4})/, "($1) $2-$3");
+  }
+
+    return numbers.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  }
+
+
   return (
     <div className="profile-page-container" style={{ paddingTop: '120px' }}>
       <aside className="profile-sidebar">
@@ -149,6 +177,10 @@ const handleRemovePhoto = () => {
               <div className="detail-group">
                 <label>Nome Completo</label>
                 <input className="profile-input" name="nome" value={userData.nome} onChange={handleChange} />
+              </div>
+              <div className="detail-group">
+                <label>Número de telefone</label>
+                <input className="profile-input" name="telefone" value={maskPhone(userData.telefone) || ''} onChange={handleChange} />
               </div>
               <div className="detail-group">
                 <label>E-mail</label>
