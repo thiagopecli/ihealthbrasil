@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
-from rest_framework import serializers
-from rest_framework_simplejwt.tokens import RefreshToken
 from google.auth.transport import requests
 from google.oauth2 import id_token
+from rest_framework import serializers
+from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
@@ -58,46 +58,46 @@ class GoogleOAuthSerializer(serializers.Serializer):
 
     def validate(self, data):
         try:
-            id_token_value = data.get('id_token')
-            client_id = data.get('client_id')
-            
+            id_token_value = data.get("id_token")
+            client_id = data.get("client_id")
+
             request_obj = requests.Request()
             idinfo = id_token.verify_oauth2_token(id_token_value, request_obj, client_id)
-            
-            if idinfo.get('aud') != client_id:
-                raise serializers.ValidationError('Token audience mismatch.')
-            
-            data['idinfo'] = idinfo
+
+            if idinfo.get("aud") != client_id:
+                raise serializers.ValidationError("Token audience mismatch.")
+
+            data["idinfo"] = idinfo
         except Exception as e:
-            raise serializers.ValidationError(f'Invalid token: {str(e)}')
-        
+            raise serializers.ValidationError(f"Invalid token: {str(e)}")
+
         return data
 
     def create(self, validated_data):
-        idinfo = validated_data.get('idinfo')
-        email = idinfo.get('email')
-        name = idinfo.get('name', '').split(' ', 1)
-        first_name = name[0] if name else ''
-        last_name = name[1] if len(name) > 1 else ''
-        
+        idinfo = validated_data.get("idinfo")
+        email = idinfo.get("email")
+        name = idinfo.get("name", "").split(" ", 1)
+        first_name = name[0] if name else ""
+        last_name = name[1] if len(name) > 1 else ""
+
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
-                'username': email.split('@')[0],
-                'first_name': first_name,
-                'last_name': last_name,
-                'profile': User.Profile.PATIENT,
-            }
+                "username": email.split("@")[0],
+                "first_name": first_name,
+                "last_name": last_name,
+                "profile": User.Profile.PATIENT,
+            },
         )
-        
+
         if not created:
             user.first_name = first_name or user.first_name
             user.last_name = last_name or user.last_name
             user.save()
-        
+
         refresh = RefreshToken.for_user(user)
         return {
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-            'user': UserSerializer(user).data,
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user": UserSerializer(user).data,
         }

@@ -14,7 +14,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .audit import log_auth_event
 from .models import AuthAuditEvent
 from .permissions import HasAnyProfile
-from .serializers import DetailMessageSerializer, LogoutSerializer, RegisterSerializer, UserSerializer, GoogleOAuthSerializer
+from .serializers import (
+    DetailMessageSerializer,
+    GoogleOAuthSerializer,
+    LogoutSerializer,
+    RegisterSerializer,
+    UserSerializer,
+)
 
 User = get_user_model()
 
@@ -136,8 +142,8 @@ class GoogleOAuthView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = serializer.save()
-        
-        user = User.objects.get(email=serializer.validated_data['idinfo']['email'])
+
+        user = User.objects.get(email=serializer.validated_data["idinfo"]["email"])
         log_auth_event(
             request=request,
             event_type=AuthAuditEvent.EventType.LOGIN,
@@ -145,7 +151,7 @@ class GoogleOAuthView(generics.CreateAPIView):
             user=user,
             details={"method": "google_oauth"},
         )
-        
+
         return Response(result, status=status.HTTP_200_OK)
 
 
