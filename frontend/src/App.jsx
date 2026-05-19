@@ -3,10 +3,12 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import logoImg from './assets/Logo_ConnectHub_Branca.svg'
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, MapPin, ChevronDown } from 'lucide-react'
+import { Search, ShoppingCart, MapPin, ChevronDown, User, Heart } from 'lucide-react'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import ProfilePage from './ProfilePage';
 
 function App() {
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -17,17 +19,20 @@ function App() {
       if (langRef.current && !langRef.current.contains(event.target)) {
         setIsLangOpen(false)
       }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
+      }
     }
-    document.addEventListener("mousedown", handleClickFora);
+    document.addEventListener("click", handleClickFora, true);
     return () => {
-      document.removeEventListener("mousedown", handleClickFora);
+      document.removeEventListener("click", handleClickFora, true);
     };
   }, [langRef])
 
   const banners = [
     { id: 1, title: 'Promoção de Outono', color: '#ffffff'},
-    { id: 1, title: 'Novidades de Bem-Estas', color: '#ffffff'},
-    { id: 1, title: 'Entrega Rápida', color: '#ffffff'}
+    { id: 2, title: 'Novidades de Bem-Estas', color: '#ffffff'},
+    { id: 3, title: 'Entrega Rápida', color: '#ffffff'}
   ];
 
   const displayBanners = [...banners, ...banners, ...banners]
@@ -90,7 +95,51 @@ function App() {
   return () => window.removeEventListener('scroll', controlSubheader);
 }, [lastScrollY]);
 
+const [isProfileOpen, setIsProfileOpen] = useState(false);
+const profileRef = useRef(null);
+const [isUserSidebarOpen, setIsUserSidebarOpen] = useState(false);
+const [sidebarContent, setSidebarContent] = useState('');
+
+const [favoritos, setFavoritos] = useState(() => {
+  const salvos = localStorage.getItem('@ConnectHub:favoritos');
+  return salvos ? JSON.parse(salvos) : [];
+});
+
+useEffect(() => {
+  localStorage.setItem('@ConnectHub:favoritos', JSON.stringify(favoritos));
+}, [favoritos]);
+
+const toggleFavorito = (produto) => {
+  setFavoritos((prev) => {
+    const jaFavoritado = prev.find (item => item.id === produto.id)
+
+    if (jaFavoritado) {
+      return prev.filter(item => item.id !== produto.id);
+    } else {
+      return [...prev, produto]
+    }
+  })
+}
+
+  const [nomeUsuario, setNomeUsuario] = useState('Usuário');
+  
+  useEffect(() => {
+    const dados = localStorage.getItem('@ConnectHub:userData');
+    if (dados) {
+      const objetoDados = JSON.parse(dados);
+      if (objetoDados.nome) {
+        setNomeUsuario(objetoDados.nome.split(' ')[0]);
+      }
+    }
+
+    carregarNome();
+
+    window.addEventListener('storage', carregarNome);
+    return () => window.removeEventListener('storage', carregarNome);
+  }, []);
+
   return (
+  <Router>
     <div className='app-container'>
       <header className='main-header'>
         <div className='logo-area'>
@@ -105,7 +154,40 @@ function App() {
           <input type="text" placeholder='Pesquisar'/>
         </div>
         <div className='user-menu'>
-          <button className='login-btn'>Entrar</button>
+          <div className='profile-container' ref={profileRef}>
+            <button
+              className='profile-btn'
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              >
+                <User size={20}/>
+                <span>Olá, {nomeUsuario}</span>
+                <ChevronDown size={14} className={`chevron-icon ${isProfileOpen ? 'rotate' : ''}`} />
+              </button>
+
+              {isProfileOpen && (
+                <ul className='profile-dropdown'>
+                  <li onClick={() => setIsProfileOpen(false)}>
+                    <Link to="/perfil" style={{ textDecoration: 'none', color: 'inherit' }}>
+                      Meu Perfil
+                    </Link>
+                  </li>
+                  <li onClick={() => {
+                    setSidebarContent('pedidos');
+                    setIsUserSidebarOpen(true);
+                    setIsProfileOpen(false);
+                  }}>Meus Pedidos
+                  </li>
+                  <li onClick={() => {
+                    setSidebarContent('favoritos');
+                    setIsUserSidebarOpen(true);
+                    setIsProfileOpen(false);
+                  }}>Favoritos
+                  </li>
+                  <li className='logout'>Sair</li>
+                </ul>
+              )}
+          </div>
+
           <button className='cart-btn'>
             <ShoppingCart size={20}/>
             Seu carrinho
@@ -113,11 +195,15 @@ function App() {
         </div>
       </header>
 
+    <Routes>
+      <Route path='/' element={
+        <>
       <div className={`subheader ${isVisible ? '' : 'hidden'}`}>
         <div className='subheader-left'>
           <button className='open-filters-btn' onClick={() => setIsFilterOpen(true)}>
             <span>☰</span> Filtros
           </button>
+
             {isFilterOpen && <div className='filter-overlay' onClick={() => setIsFilterOpen(false)}></div>}
 
             <aside className={`filter-sidebar ${isFilterOpen ? 'open' : ''}`}>
@@ -167,7 +253,7 @@ function App() {
             <div className='selected-lang'>
               <span className='Flag'>🇧🇷</span>
               <span>PT</span>
-              <ChevronDown size={14} className={isLangOpen ? 'rotate' : ''}/>
+              <ChevronDown size={14} className={`chevron-icon-lang ${isLangOpen ? 'rotate' : ''}`}/>
             </div>
         
 
@@ -223,6 +309,12 @@ function App() {
               <div key={produto.id} className='product-card'>
                 <div className='product-image'>
                   <img src={produto.imagem} alt={produto.nome} />
+                  <button 
+                    className={`fav-btn ${favoritos.some(f => f.id === produto.id) ? 'active' : ''}`}
+                    onClick={() => toggleFavorito(produto)}
+                    >
+                     <Heart size={25} fill={favoritos.some(f => f.id === produto.id) ? "var(--vermelho-off)" : "none"}/> 
+                  </button>
                 </div>
                 <div className='product-info'>
                   <span className='product-category'>{produto.categoria}</span>
@@ -235,9 +327,55 @@ function App() {
           </div>
         </div>
       </section>
+      </>
+    } />
 
+      <Route path='/perfil' element={<ProfilePage />} />
+    </Routes>
+
+      {isUserSidebarOpen && <div className='filter-overlay' onClick={() => setIsUserSidebarOpen(false)}></div>}
+
+      <aside className={`user-sidebar ${isUserSidebarOpen ? 'open' : ''}`}>
+        <div className='sidebar-header'>
+          <h3>{sidebarContent === 'pedidos' ? 'Meus Pedidos' : 'Meus Favoritos'}</h3>
+          <button className='close-btn' onClick={() => setIsUserSidebarOpen(false)}>✕</button>
+        </div>
+
+        <div className='sidebar-body'>
+          {sidebarContent === 'pedidos' ? (
+            <div className='empty-state'>
+              <p>Você ainda não tem pedidos recentes.</p>
+              <button className='buy-button' onClick={() => setIsUserSidebarOpen (false)}>Explorar Loja</button>
+            </div>
+          ) : ( 
+            <div className='favoritos-list'>
+              {favoritos.length > 0 ? (
+                favoritos.map((item) => (
+                  <div key={item.id} className='fav-item-sidebar'>
+                    <img src={item.imagem} alt={item.nome} />
+                    <div className='fav-item-info'>
+                      <h4>{item.nome}</h4>
+                      <p>R$ {item.preco}</p>
+                    </div>
+                    <button className='remove-fav'
+                      onClick={() => toggleFavorito(item)}
+                      title='Remover dos favoritos'
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))
+              ) : (
+            <div className='empty-state'>
+              <p>Sua lista de favoritos está vazia.</p>
+            </div>
+          )}
+          </div>
+          )}
+        </div>
+      </aside>
     </div>
+  </Router>
   )
 }
-
 export default App
