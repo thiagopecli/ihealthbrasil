@@ -1,381 +1,393 @@
 import './App.css'
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Autoplay } from 'swiper/modules';
-import logoImg from './assets/Logo_ConnectHub_Branca.svg'
-import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, MapPin, ChevronDown, User, Heart } from 'lucide-react'
-import 'swiper/css'
-import 'swiper/css/navigation'
-import 'swiper/css/pagination'
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
-import ProfilePage from './ProfilePage';
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, MapPin } from 'lucide-react'
+import { useLanguage } from './LanguageContext'
+import Header from './components/Header'
+import BannerCarousel from './components/BannerCarousel'
+import ProductGrid from './components/ProductGrid'
+import Footer from './components/Footer'
+import { Routes, Route } from 'react-router-dom'
+import Login from './pages/Login'
+import Register from './pages/Register'
 
 function App() {
-  const [isLangOpen, setIsLangOpen] = useState(false);
-  const langRef = useRef(null);
+  const [isLangOpen, setIsLangOpen] = useState(false)
+  const [isLocationOpen, setIsLocationOpen] = useState(false)
+  const [cepValue, setCepValue] = useState('')
+  const [cepStatus, setCepStatus] = useState('')
+  const [cepResult, setCepResult] = useState('')
+  const [isSearchingCep, setIsSearchingCep] = useState(false)
+  const [isLocating, setIsLocating] = useState(false)
+  const [locationMessage, setLocationMessage] = useState('')
+  const [currentLocation, setCurrentLocation] = useState('São Paulo, SP')
+  const langRef = useRef(null)
+  const locationRef = useRef(null)
+
+  const { lang, setLang, t } = useLanguage()
 
   useEffect(() => {
     function handleClickFora(event) {
       if (langRef.current && !langRef.current.contains(event.target)) {
         setIsLangOpen(false)
       }
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setIsProfileOpen(false);
+
+      if (locationRef.current && !locationRef.current.contains(event.target)) {
+        setIsLocationOpen(false)
       }
     }
-    document.addEventListener("click", handleClickFora, true);
+
+    document.addEventListener('mousedown', handleClickFora)
     return () => {
-      document.removeEventListener("click", handleClickFora, true);
-    };
-  }, [langRef])
+      document.removeEventListener('mousedown', handleClickFora)
+    }
+  }, [])
+
+  function formatCep(value) {
+    const digits = value.replace(/\D/g, '').slice(0, 8)
+    if (digits.length <= 5) {
+      return digits
+    }
+
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`
+  }
+
+  async function handleCepSearch(event) {
+    event.preventDefault()
+
+    const cep = cepValue.replace(/\D/g, '')
+    if (cep.length !== 8) {
+      setCepStatus(t('cep_invalid'))
+      setCepResult('')
+      return
+    }
+
+    setIsSearchingCep(true)
+    setCepStatus('Buscando CEP...')
+    setCepResult('')
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`)
+      const data = await response.json()
+
+      if (!response.ok || data.erro) {
+        throw new Error(t('cep_not_found_error'))
+      }
+
+      const locationText = [data.localidade, data.uf].filter(Boolean).join(', ')
+      const streetText = [data.logradouro, data.bairro].filter(Boolean).join(' - ')
+
+      setCurrentLocation(locationText || t('location_updated'))
+      setCepResult([streetText, locationText].filter(Boolean).join(' • ') || t('cep_found_success'))
+      setCepStatus('')
+    } catch {
+      setCepStatus(t('cep_not_found'))
+      setCepResult('')
+    } finally {
+      setIsSearchingCep(false)
+    }
+  }
+
+  async function handleUseCurrentLocation() {
+    if (!navigator.geolocation) {
+      setLocationMessage(t('location_not_supported'))
+      try {
+        const fallbackResponse = await fetch('https://ipapi.co/json/')
+        const fallbackData = await fallbackResponse.json()
+        setCurrentLocation(
+          [fallbackData.city, fallbackData.region_code || fallbackData.region].filter(Boolean).join(', ') ||
+            t('location_approximate'),
+        )
+      } catch {
+        setCurrentLocation(t('location_approximate'))
+      }
+      return
+    }
+
+    setIsLocating(true)
+    setLocationMessage('')
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+            {
+              headers: {
+                Accept: 'application/json',
+              },
+            },
+          )
+
+          if (!response.ok) {
+            throw new Error('Não foi possível identificar o endereço.')
+          }
+
+          const data = await response.json()
+          const addressParts = [data.address?.city || data.address?.town || data.address?.village, data.address?.state]
+            .filter(Boolean)
+            .join(', ')
+
+          setCurrentLocation(addressParts || data.display_name || t('location_updated'))
+          setLocationMessage(t('location_updated'))
+        } catch (error) {
+          setCurrentLocation(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`)
+          setLocationMessage(t('location_detected_no_address'))
+        } finally {
+          setIsLocating(false)
+        }
+      },
+      () => {
+        setLocationMessage(t('location_access_denied'))
+        fetch('https://ipapi.co/json/')
+          .then((response) => response.json())
+          .then((fallbackData) => {
+            setCurrentLocation(
+              [fallbackData.city, fallbackData.region_code || fallbackData.region].filter(Boolean).join(', ') ||
+                t('location_approximate'),
+            )
+          })
+          .catch(() => {
+            setCurrentLocation(t('location_approximate'))
+          })
+        setIsLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
+  }
 
   const banners = [
-    { id: 1, title: 'Promoção de Outono', color: '#ffffff'},
-    { id: 2, title: 'Novidades de Bem-Estas', color: '#ffffff'},
-    { id: 3, title: 'Entrega Rápida', color: '#ffffff'}
-  ];
+    { id: 1, title: t('banner_outono'), color: '#ffffff' },
+    { id: 2, title: t('banner_novidades'), color: '#ffffff' },
+    { id: 3, title: t('banner_entrega'), color: '#ffffff' },
+  ]
 
   const displayBanners = [...banners, ...banners, ...banners]
 
   const produtosDestaque = [
     {
       id: 1,
-      nome:"Vitamina C",
-      preco:"49,90",
-      categoria: "Suplementos",
-      imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
+      nome: 'Vitamina C',
+      preco: '49,90',
+      categoria: 'Suplementos',
+      imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80',
     },
     {
       id: 2,
-      nome:"Ômega 3",
-      preco:"79,90",
-      categoria: "Saúde",
-      imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
+      nome: 'Ômega 3',
+      preco: '79,90',
+      categoria: 'Saúde',
+      imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80',
     },
     {
       id: 3,
-      nome:"Whey Protein",
-      preco:"129,90",
-      categoria: "Esporte",
-      imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
+      nome: 'Whey Protein',
+      preco: '129,90',
+      categoria: 'Esporte',
+      imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80',
     },
     {
       id: 4,
-      nome:"Magnésio Quelato",
-      preco:"35,00",
-      categoria: "Minerais",
-      imagem: "https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80"
-    }
-  ];
+      nome: 'Magnésio Quelato',
+      preco: '35,00',
+      categoria: 'Minerais',
+      imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80',
+    },
+  ]
 
-  const categorias = ["Todos", "Minerais", "Suplementos", "Esporte", "Saúde"]
+  const categorias = ['Todos', 'Cosméticos', 'Sublinguais', 'Veterinários', 'Bioativos Apícolas']
 
-  const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
-
-  const produtosFiltrados = categoriaAtiva === "Todos"
-    ? produtosDestaque
-    : produtosDestaque.filter(produto => produto.categoria === categoriaAtiva);
-  
+  const [categoriaAtiva, setCategoriaAtiva] = useState('Todos')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
 
-  const [isVisible, setisVisible] = useState(true)
-  const [lastScrollY, setlastScrollY] = useState(0)
+  const produtosFiltrados =
+    categoriaAtiva === 'Todos'
+      ? produtosDestaque
+      : produtosDestaque.filter((produto) => produto.categoria === categoriaAtiva)
 
-  useEffect (() => {
-    const controlSubheader = () => {
-    if (window.scrollY > lastScrollY && window.scrollY > 100) {
-      setisVisible(false);  
-    } else {
-      setisVisible(true);
-    }
-    setlastScrollY(window.scrollY);
-  };
-  
-  window.addEventListener('scroll', controlSubheader);
-  return () => window.removeEventListener('scroll', controlSubheader);
-}, [lastScrollY]);
+  const categoryKeyMap = {
+    Todos: 'todos',
+    'Cosméticos': 'cosmeticos',
+    Sublinguais: 'sublinguais',
+    'Veterinários': 'veterinarios',
+    'Bioativos Apícolas': 'bioativos_apicolas',
+  }
 
-const [isProfileOpen, setIsProfileOpen] = useState(false);
-const profileRef = useRef(null);
-const [isUserSidebarOpen, setIsUserSidebarOpen] = useState(false);
-const [sidebarContent, setSidebarContent] = useState('');
-
-const [favoritos, setFavoritos] = useState(() => {
-  const salvos = localStorage.getItem('@ConnectHub:favoritos');
-  return salvos ? JSON.parse(salvos) : [];
-});
-
-useEffect(() => {
-  localStorage.setItem('@ConnectHub:favoritos', JSON.stringify(favoritos));
-}, [favoritos]);
-
-const toggleFavorito = (produto) => {
-  setFavoritos((prev) => {
-    const jaFavoritado = prev.find (item => item.id === produto.id)
-
-    if (jaFavoritado) {
-      return prev.filter(item => item.id !== produto.id);
-    } else {
-      return [...prev, produto]
-    }
-  })
-}
-
-  const [nomeUsuario, setNomeUsuario] = useState('Usuário');
-  
   useEffect(() => {
-    const dados = localStorage.getItem('@ConnectHub:userData');
-    if (dados) {
-      const objetoDados = JSON.parse(dados);
-      if (objetoDados.nome) {
-        setNomeUsuario(objetoDados.nome.split(' ')[0]);
+    const controlSubheader = () => {
+      if (window.scrollY > lastScrollY && window.scrollY > 100) {
+        setIsVisible(false)
+      } else {
+        setIsVisible(true)
       }
+
+      setLastScrollY(window.scrollY)
     }
 
-    carregarNome();
+    window.addEventListener('scroll', controlSubheader)
+    return () => window.removeEventListener('scroll', controlSubheader)
+  }, [lastScrollY])
 
-    window.addEventListener('storage', carregarNome);
-    return () => window.removeEventListener('storage', carregarNome);
-  }, []);
+  const homeContent = (
+    <>
+      <Header />
 
-  return (
-  <Router>
-    <div className='app-container'>
-      <header className='main-header'>
-        <div className='logo-area'>
-          <img src={logoImg} alt='iHealth Brasil' className='logo-img'/>
-            <div className='logo-text'>
-              <strong>ConnectHub</strong>
-              <span>Onde tecnologia e natureza se encontram</span>
-            </div>
-        </div>
-        <div className='search-bar'>
-          <Search className='search-icon' size={20}/>
-          <input type="text" placeholder='Pesquisar'/>
-        </div>
-        <div className='user-menu'>
-          <div className='profile-container' ref={profileRef}>
-            <button
-              className='profile-btn'
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              >
-                <User size={20}/>
-                <span>Olá, {nomeUsuario}</span>
-                <ChevronDown size={14} className={`chevron-icon ${isProfileOpen ? 'rotate' : ''}`} />
-              </button>
-
-              {isProfileOpen && (
-                <ul className='profile-dropdown'>
-                  <li onClick={() => setIsProfileOpen(false)}>
-                    <Link to="/perfil" style={{ textDecoration: 'none', color: 'inherit' }}>
-                      Meu Perfil
-                    </Link>
-                  </li>
-                  <li onClick={() => {
-                    setSidebarContent('pedidos');
-                    setIsUserSidebarOpen(true);
-                    setIsProfileOpen(false);
-                  }}>Meus Pedidos
-                  </li>
-                  <li onClick={() => {
-                    setSidebarContent('favoritos');
-                    setIsUserSidebarOpen(true);
-                    setIsProfileOpen(false);
-                  }}>Favoritos
-                  </li>
-                  <li className='logout'>Sair</li>
-                </ul>
-              )}
-          </div>
-
-          <button className='cart-btn'>
-            <ShoppingCart size={20}/>
-            Seu carrinho
-          </button>
-        </div>
-      </header>
-
-    <Routes>
-      <Route path='/' element={
-        <>
       <div className={`subheader ${isVisible ? '' : 'hidden'}`}>
         <div className='subheader-left'>
           <button className='open-filters-btn' onClick={() => setIsFilterOpen(true)}>
-            <span>☰</span> Filtros
+            <span>☰</span> {t('filtros')}
           </button>
 
-            {isFilterOpen && <div className='filter-overlay' onClick={() => setIsFilterOpen(false)}></div>}
+          {isFilterOpen && <div className='filter-overlay' onClick={() => setIsFilterOpen(false)} />}
 
-            <aside className={`filter-sidebar ${isFilterOpen ? 'open' : ''}`}>
-              <div className='sidebar-header'>
-                <h3>Filtros</h3>
-                <button className='close-btn' onClick={() => setIsFilterOpen(false)}>✕</button>
+          <aside className={`filter-sidebar ${isFilterOpen ? 'open' : ''}`}>
+            <div className='sidebar-header'>
+              <h3>{t('filtros')}</h3>
+              <button className='close-btn' onClick={() => setIsFilterOpen(false)}>
+                ✕
+              </button>
+            </div>
+
+            <div className='filter-groups'>
+              <h4>{t('categorias')}</h4>
+              {categorias.map((cat) => (
+                <button
+                  key={cat}
+                  className={`filter-link ${categoriaAtiva === cat ? 'active' : ''}`}
+                  onClick={() => {
+                    setCategoriaAtiva(cat)
+                    setIsFilterOpen(false)
+                  }}
+                >
+                  {t(categoryKeyMap[cat])}
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <div className='delivery-wrapper' ref={locationRef}>
+            <button
+              type='button'
+              className='delivery-info delivery-link delivery-trigger'
+              onClick={() => setIsLocationOpen(!isLocationOpen)}
+              aria-label='Abrir seletor de localização'
+            >
+              <span>{t('deliver')}</span>
+              <strong>
+                {currentLocation}
+                <MapPin size={20} />
+                <ChevronDown size={20} className={isLocationOpen ? 'rotate' : ''} />
+              </strong>
+            </button>
+
+            {isLocationOpen && (
+              <div className='delivery-popover' role='dialog' aria-label='Seleção de CEP'>
+                <p className='delivery-popover-title'>{t('cepTitle')}</p>
+                <p className='delivery-popover-text'>{t('cepText')}</p>
+
+                <form className='delivery-popover-form' onSubmit={handleCepSearch}>
+                  <input
+                    type='text'
+                    inputMode='numeric'
+                    placeholder='00000-000'
+                    value={cepValue}
+                    onChange={(event) => setCepValue(formatCep(event.target.value))}
+                  />
+                  <button type='submit' className='delivery-popover-button' disabled={isSearchingCep}>
+                    {isSearchingCep ? t('buscando') : t('buscar')}
+                  </button>
+                </form>
+
+                {cepResult && <p className='delivery-popover-result'>{cepResult}</p>}
+                {cepStatus && <p className='delivery-popover-status'>{cepStatus}</p>}
+
+                <button
+                  type='button'
+                  className='delivery-popover-link'
+                  onClick={handleUseCurrentLocation}
+                  disabled={isLocating}
+                >
+                  {isLocating ? t('localizando') : t('usarLocal')}
+                </button>
+
+                {locationMessage && <p className='delivery-popover-status'>{locationMessage}</p>}
               </div>
-
-              <div className='filter-groups'>
-                <h4>Categorias</h4>
-                  {categorias.map((cat) => (
-                    <button
-                    key={cat}
-                    className={`filter-link ${categoriaAtiva === cat ? 'active' : ''}`}
-                    onClick={() => {
-                      setCategoriaAtiva(cat);
-                      setIsFilterOpen(false);
-                      }}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-              </div>
-            </aside>
-
-          <div className='delivery-info'>
-            <span>
-              Entregar em:
-            </span>
-                <strong>
-                  São Paulo, SP
-                  <MapPin size={20}/>
-                  <ChevronDown size={20}/>
-                </strong>
+            )}
           </div>
         </div>
 
         <nav className='category-menu'>
-          <a href="#">Medicamentos</a>
-          <a href="#">Bem-Estar</a>
-          <a href="#">Naturais</a>
-          <a href="#">Promoções</a>
+          <a href='#'>{t('nav_medicamentos')}</a>
+          <a href='#'>{t('nav_bemestar')}</a>
+          <a href='#'>{t('nav_naturais')}</a>
+          <a href='#'>{t('nav_promocoes')}</a>
         </nav>
 
-        <div className='subheader-right'>            
+        <div className='subheader-right'>
           <div className='language-selector' ref={langRef} onClick={() => setIsLangOpen(!isLangOpen)}>
             <div className='selected-lang'>
-              <span className='Flag'>🇧🇷</span>
-              <span>PT</span>
-              <ChevronDown size={14} className={`chevron-icon-lang ${isLangOpen ? 'rotate' : ''}`}/>
+              <span className='Flag'>{lang === 'pt' ? '🇧🇷' : lang === 'en' ? '🇺🇸' : lang === 'es' ? '🇪🇸' : '🇫🇷'}</span>
+              <span>{lang.toUpperCase()}</span>
+              <ChevronDown size={14} className={isLangOpen ? 'rotate' : ''} />
             </div>
-        
 
-          {isLangOpen && (
-            <ul className='lang-dropdown'>
-              <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇧🇷</span>Potuguês</li>
-              <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇺🇸</span>Inglês</li>
-              <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇪🇸</span>Espanhol</li>
-              <li onClick={() => setIsLangOpen(false)}><span className='flag'>🇫🇷</span>Françês</li>
-            </ul>
+            {isLangOpen && (
+              <ul className='lang-dropdown'>
+                <li
+                  onClick={() => {
+                    setLang('pt')
+                    setIsLangOpen(false)
+                  }}
+                >
+                  <span className='flag'>🇧🇷</span> Português
+                </li>
+                <li
+                  onClick={() => {
+                    setLang('en')
+                    setIsLangOpen(false)
+                  }}
+                >
+                  <span className='flag'>🇺🇸</span> English
+                </li>
+                <li
+                  onClick={() => {
+                    setLang('es')
+                    setIsLangOpen(false)
+                  }}
+                >
+                  <span className='flag'>🇪🇸</span> Español
+                </li>
+                <li
+                  onClick={() => {
+                    setLang('fr')
+                    setIsLangOpen(false)
+                  }}
+                >
+                  <span className='flag'>🇫🇷</span> Français
+                </li>
+              </ul>
             )}
           </div>
         </div>
-      </div>        
-      <section className='main-banner'>
-        <Swiper
-          modules={[Navigation, Pagination, Autoplay]}
-          slidesPerView={1.2}
-          centeredSlides={true}
-          spaceBetween={20}
-          loop={true}
-          loopedSlides={3}
-          loopAdditionalSlides={3}
-          speed={600}
-          pagination={{ clickable: true,
-            renderBullet: function (index, className){
-              if (index > 3) return "";
-              return `<span class"${className}"></span>`;
-            },
-           }}
-          navigation={true}
-          className="mySwiper"
-> 
-          {displayBanners.map((banner, index) => (
-            <SwiperSlide key={index}>
-              <div className='banner-item' style={{ backgroundColor: banner.color }}>
-                <h2>{banner.title}</h2>
-              </div>
-            </SwiperSlide>
-          ))}
-        </Swiper>
-      </section>
-        
-      <section className='products-section'>
-        <div className='products-container'>
-          <div className='section-header'>
-            <h2>Produtos em Destaque</h2>
-            <a href="#" className='view-all'>Ver todos</a>
-          </div>
+      </div>
 
-          <div className='products-grid'>
-            {produtosFiltrados.map((produto) => (
-              <div key={produto.id} className='product-card'>
-                <div className='product-image'>
-                  <img src={produto.imagem} alt={produto.nome} />
-                  <button 
-                    className={`fav-btn ${favoritos.some(f => f.id === produto.id) ? 'active' : ''}`}
-                    onClick={() => toggleFavorito(produto)}
-                    >
-                     <Heart size={25} fill={favoritos.some(f => f.id === produto.id) ? "var(--vermelho-off)" : "none"}/> 
-                  </button>
-                </div>
-                <div className='product-info'>
-                  <span className='product-category'>{produto.categoria}</span>
-                  <h3>{produto.nome}</h3>
-                  <p className='product-price'>R$ {produto.preco}</p>
-                  <button className='buy-button'>Comprar agora</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      </>
-    } />
+      <BannerCarousel banners={displayBanners} />
+      <ProductGrid produtos={produtosFiltrados} />
+      <Footer />
+    </>
+  )
 
-      <Route path='/perfil' element={<ProfilePage />} />
-    </Routes>
-
-      {isUserSidebarOpen && <div className='filter-overlay' onClick={() => setIsUserSidebarOpen(false)}></div>}
-
-      <aside className={`user-sidebar ${isUserSidebarOpen ? 'open' : ''}`}>
-        <div className='sidebar-header'>
-          <h3>{sidebarContent === 'pedidos' ? 'Meus Pedidos' : 'Meus Favoritos'}</h3>
-          <button className='close-btn' onClick={() => setIsUserSidebarOpen(false)}>✕</button>
-        </div>
-
-        <div className='sidebar-body'>
-          {sidebarContent === 'pedidos' ? (
-            <div className='empty-state'>
-              <p>Você ainda não tem pedidos recentes.</p>
-              <button className='buy-button' onClick={() => setIsUserSidebarOpen (false)}>Explorar Loja</button>
-            </div>
-          ) : ( 
-            <div className='favoritos-list'>
-              {favoritos.length > 0 ? (
-                favoritos.map((item) => (
-                  <div key={item.id} className='fav-item-sidebar'>
-                    <img src={item.imagem} alt={item.nome} />
-                    <div className='fav-item-info'>
-                      <h4>{item.nome}</h4>
-                      <p>R$ {item.preco}</p>
-                    </div>
-                    <button className='remove-fav'
-                      onClick={() => toggleFavorito(item)}
-                      title='Remover dos favoritos'
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))
-              ) : (
-            <div className='empty-state'>
-              <p>Sua lista de favoritos está vazia.</p>
-            </div>
-          )}
-          </div>
-          )}
-        </div>
-      </aside>
+  return (
+    <div className='app-container'>
+      <Routes>
+        <Route path='/' element={homeContent} />
+        <Route path='/login' element={<Login />} />
+        <Route path='/register' element={<Register />} />
+      </Routes>
     </div>
-  </Router>
   )
 }
+
 export default App

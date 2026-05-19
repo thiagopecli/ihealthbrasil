@@ -14,7 +14,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .audit import log_auth_event
 from .models import AuthAuditEvent
 from .permissions import HasAnyProfile
-from .serializers import DetailMessageSerializer, LogoutSerializer, RegisterSerializer, UserSerializer
+from .serializers import (
+    DetailMessageSerializer,
+    GoogleOAuthSerializer,
+    LogoutSerializer,
+    RegisterSerializer,
+    UserSerializer,
+)
 
 User = get_user_model()
 
@@ -124,6 +130,29 @@ class ProviderOrAdminView(APIView):
     @extend_schema(responses={200: DetailMessageSerializer})
     def get(self, _request, *args, **kwargs):
         return Response({"detail": "Acesso permitido para PROVIDER ou ADMIN."})
+
+
+class GoogleOAuthView(generics.CreateAPIView):
+    serializer_class = GoogleOAuthSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth-google"
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+
+        user = User.objects.get(email=serializer.validated_data["idinfo"]["email"])
+        log_auth_event(
+            request=request,
+            event_type=AuthAuditEvent.EventType.LOGIN,
+            status=AuthAuditEvent.Status.SUCCESS,
+            user=user,
+            details={"method": "google_oauth"},
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class AuditTokenRefreshView(TokenRefreshView):
