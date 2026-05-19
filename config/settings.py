@@ -178,6 +178,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "auth-login": os.getenv("THROTTLE_AUTH_LOGIN", "30/min"),
         "auth-register": os.getenv("THROTTLE_AUTH_REGISTER", "20/hour"),
+        "auth-google": os.getenv("THROTTLE_AUTH_GOOGLE", "20/hour"),
         "auth-refresh": os.getenv("THROTTLE_AUTH_REFRESH", "120/min"),
         "auth-verify": os.getenv("THROTTLE_AUTH_VERIFY", "120/min"),
         "auth-logout": os.getenv("THROTTLE_AUTH_LOGOUT", "60/min"),

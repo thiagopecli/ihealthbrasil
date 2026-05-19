@@ -5,6 +5,7 @@ from .views import (
     AuditTokenObtainPairView,
     AuditTokenRefreshView,
     AuditTokenVerifyView,
+    GoogleOAuthView,
     LogoutView,
     MeView,
     ProviderOrAdminView,
@@ -13,6 +14,7 @@ from .views import (
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
+    path("google-oauth/", GoogleOAuthView.as_view(), name="google_oauth"),
     path("token/", AuditTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", AuditTokenRefreshView.as_view(), name="token_refresh"),
     path("token/verify/", AuditTokenVerifyView.as_view(), name="token_verify"),
