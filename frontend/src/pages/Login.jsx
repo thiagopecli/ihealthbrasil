@@ -47,12 +47,41 @@ export default function Login() {
     if (!validate()) return
     setLoading(true)
 
-    // Mock login: replace with real API call
-    await new Promise((r) => setTimeout(r, 900))
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+      const res = await fetch(`${apiBase}/auth/token/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password }),
+      })
 
-    setLoading(false)
-    // On success, navigate to home
-    navigate('/')
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.detail || 'invalid_credentials')
+        setLoading(false)
+        return
+      }
+
+      // Store tokens and fetch user profile
+      localStorage.setItem('access_token', data.access)
+      localStorage.setItem('refresh_token', data.refresh)
+
+      // fetch /me
+      const meRes = await fetch(`${apiBase}/auth/me/`, {
+        headers: { Authorization: `Bearer ${data.access}` },
+      })
+      if (meRes.ok) {
+        const meData = await meRes.json()
+        localStorage.setItem('user', JSON.stringify(meData))
+      }
+
+      navigate('/')
+    } catch (err) {
+      console.error('Login error', err)
+      setError(t('login_error_required'))
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleGoogleAuth() {
@@ -97,6 +126,40 @@ export default function Login() {
       console.error('Google auth error:', err)
     } finally {
       setGoogleLoading(false)
+    }
+  }
+
+  // Dev helper: quick login with test user
+  async function handleQuickLogin() {
+    setError('')
+    setLoading(true)
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+      const res = await fetch(`${apiBase}/auth/token/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'test_user_ai@example.com', password: 'TestPass123' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(JSON.stringify(data))
+        setLoading(false)
+        return
+      }
+
+      localStorage.setItem('access_token', data.access)
+      localStorage.setItem('refresh_token', data.refresh)
+      const meRes = await fetch(`${apiBase}/auth/me/`, { headers: { Authorization: `Bearer ${data.access}` } })
+      if (meRes.ok) {
+        const me = await meRes.json()
+        localStorage.setItem('user', JSON.stringify(me))
+      }
+      navigate('/')
+    } catch (err) {
+      console.error('Quick login error', err)
+      setError(String(err))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -162,6 +225,11 @@ export default function Login() {
               <div className="register-row">
                 <span>{t('no_account')}</span>
                 <Link to="/register" className="login-register-link">{t('create_account')}</Link>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <button type="button" className="social-btn" onClick={handleQuickLogin} style={{ background: '#eee', color: '#111' }}>
+                  Login de Teste (dev)
+                </button>
               </div>
             </form>
           </section>

@@ -27,6 +27,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()]
 
 INSTALLED_APPS = [
+    "corsheaders",
     "accounts",
     "products",
     "django.contrib.admin",
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -248,6 +250,14 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": False,
     "SIGNING_KEY": JWT_SIGNING_KEY,
 }
+
+# CORS: during development allow all origins to simplify local frontend integration.
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin.strip()
+    ]
 
 PAYMENT_WEBHOOK_SECRET = os.getenv("PAYMENT_WEBHOOK_SECRET", "dev-webhook-secret-change-me")
 PAYMENT_DEFAULT_COMMISSION_RATE = os.getenv("PAYMENT_DEFAULT_COMMISSION_RATE", "12.00")
