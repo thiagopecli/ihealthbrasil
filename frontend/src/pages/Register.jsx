@@ -56,9 +56,65 @@ export default function Register() {
     e.preventDefault()
     if (!validate()) return
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 900))
-    setLoading(false)
-    navigate('/')
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+      // prepare payload
+      const names = name.trim().split(/\s+/)
+      const first_name = names.shift() || ''
+      const last_name = names.join(' ') || ''
+      const payload = {
+        username: email.split('@')[0],
+        email,
+        password,
+        first_name,
+        last_name,
+        phone_number: phone || '',
+      }
+
+      const res = await fetch(`${apiBase}/auth/register/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // try to extract message
+        const errMsg = data.detail || Object.values(data)[0]?.[0] || t('register_error_required')
+        setError(errMsg)
+        setLoading(false)
+        return
+      }
+
+      // Auto-login after register
+      const tokenRes = await fetch(`${apiBase}/auth/token/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: payload.username, password }),
+      })
+      const tokenData = await tokenRes.json()
+      if (tokenRes.ok) {
+        localStorage.setItem('access_token', tokenData.access)
+        localStorage.setItem('refresh_token', tokenData.refresh)
+
+        const meRes = await fetch(`${apiBase}/auth/me/`, {
+          headers: { Authorization: `Bearer ${tokenData.access}` },
+        })
+        if (meRes.ok) {
+          const meData = await meRes.json()
+          localStorage.setItem('user', JSON.stringify(meData))
+        }
+
+        navigate('/')
+      } else {
+        setError(t('register_error_required'))
+      }
+    } catch (err) {
+      console.error('Register error', err)
+      setError(t('register_error_required'))
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleGooglePrefill() {

@@ -32,9 +32,19 @@ class AuditTokenObtainPairView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         request_data = cast(dict[str, Any], request.data)
+        # Allow login with email: if username looks like an email, try to resolve the
+        # actual username for authentication. This keeps compatibility with existing
+        # frontend which posts 'username' as the email address.
         username = request_data.get("username", "")
-        user = User.objects.filter(username=username).first()
-        serializer = self.get_serializer(data=request.data)
+        # Create a mutable copy of the data for serializer input
+        mutable_data = dict(request.data)
+        if username and "@" in username:
+            user_by_email = User.objects.filter(email__iexact=username).first()
+            if user_by_email:
+                mutable_data["username"] = user_by_email.username
+
+        user = User.objects.filter(username=mutable_data.get("username", "")).first()
+        serializer = self.get_serializer(data=mutable_data)
 
         try:
             serializer.is_valid(raise_exception=True)
