@@ -122,15 +122,18 @@ const toggleFavorito = (produto) => {
 }
 
   const [nomeUsuario, setNomeUsuario] = useState('Usuário');
+
+  const carregarNome = () => {
+  const dados = localStorage.getItem('@ConnectHub:userData');
+  if (dados) {
+    const objetoDados = JSON.parse(dados);
+    if (objetoDados.nome) {
+      setNomeUsuario(objetoDados.nome.split(' ')[0]);
+    }
+  }
+};
   
   useEffect(() => {
-    const dados = localStorage.getItem('@ConnectHub:userData');
-    if (dados) {
-      const objetoDados = JSON.parse(dados);
-      if (objetoDados.nome) {
-        setNomeUsuario(objetoDados.nome.split(' ')[0]);
-      }
-    }
 
     carregarNome();
 
@@ -160,7 +163,7 @@ const toggleFavorito = (produto) => {
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               >
                 <User size={20}/>
-                <span>Olá, {nomeUsuario}</span>
+                <span>Olá, {nomeUsuario}!</span>
                 <ChevronDown size={14} className={`chevron-icon ${isProfileOpen ? 'rotate' : ''}`} />
               </button>
 

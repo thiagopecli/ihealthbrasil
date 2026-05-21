@@ -70,6 +70,7 @@ body {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
+  min-width: 200px;
   background: var(--azul-ciano);
   border: none;
   padding: 10px 20px;
@@ -102,6 +103,7 @@ body {
   left: 50%;
   transform: translate(-50%);
   width: 100%;
+  min-width: 200px;
   background-color: white;
   border: 1px solid #e2e8f0;
   border-top: none;
