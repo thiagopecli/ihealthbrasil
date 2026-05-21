@@ -74,7 +74,7 @@ const handleRemovePhoto = () => {
   if (window.confirm("tem certeza que deseja remover sua foto de perfil?")){
     setUserData(prev => ({ ...prev, foto: null }));
 
-    const dadosNoStorage = localStorage.getItem('@Connecthub:userData');
+    const dadosNoStorage = localStorage.getItem('@ConnectHub:userData');
     const objetosParaLimpar = dadosNoStorage ? JSON.parse(dadosNoStorage) : userData;
     const novosDadosSemFoto = { ...objetosParaLimpar, foto: null }
 
@@ -108,23 +108,22 @@ const maskPhone = (value) => {
   if (!value) return "";
 
   let numbers = value.replace(/\D/g, "");
-
-  numbers = numbers.slice(0, 11)
+  numbers = numbers.slice(0, 11);
 
   if (numbers.length <= 2) {
     return numbers.replace(/(\d{1,2})/, "($1");
   }
-  
+
   if (numbers.length <= 6) {
-    return numbers.replace(/(\d{2})(\d{1,4}), "($1) $2"/)
+    return numbers.replace(/(\d{2})(\d{1,4})/, "($1) $2");
   }
 
   if (numbers.length <= 10) {
     return numbers.replace(/(\d{2})(\d{4})(\d{1,4})/, "($1) $2-$3");
   }
 
-    return numbers.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-  }
+  return numbers.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+};
 
 
   return (
@@ -151,7 +150,7 @@ const maskPhone = (value) => {
             )}
           </div>
           <div className="profile-info">
-            <h1>{userData?.nome?.split(' ')[0] || 'Usuário'}</h1>
+            <h1>{(userData?.nome || 'Usuário').split(' ')[0]}</h1>
             <span>Membro desde 2026</span>
           </div>
         </div>

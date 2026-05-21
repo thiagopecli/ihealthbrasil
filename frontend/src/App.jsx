@@ -216,16 +216,94 @@ function App() {
     'Bioativos Apícolas': 'bioativos_apicolas',
   }
 
-  useEffect(() => {
-    const controlSubheader = () => {
-      if (window.scrollY > lastScrollY && window.scrollY > 100) {
-        setIsVisible(false)
-      } else {
-        setIsVisible(true)
-      }
+  const [isVisible, setisVisible] = useState(true)
+  const [lastScrollY, setlastScrollY] = useState(0)
 
-      setLastScrollY(window.scrollY)
+  useEffect (() => {
+    const controlSubheader = () => {
+    if (window.scrollY > lastScrollY && window.scrollY > 100) {
+      setisVisible(false);  
+    } else {
+      setisVisible(true);
     }
+    setlastScrollY(window.scrollY);
+  };
+  
+  window.addEventListener('scroll', controlSubheader);
+  return () => window.removeEventListener('scroll', controlSubheader);
+}, [lastScrollY]);
+
+const [isProfileOpen, setIsProfileOpen] = useState(false);
+const profileRef = useRef(null);
+const [isUserSidebarOpen, setIsUserSidebarOpen] = useState(false);
+const [sidebarContent, setSidebarContent] = useState('');
+
+const [favoritos, setFavoritos] = useState(() => {
+  const salvos = localStorage.getItem('@ConnectHub:favoritos');
+  return salvos ? JSON.parse(salvos) : [];
+});
+
+useEffect(() => {
+  localStorage.setItem('@ConnectHub:favoritos', JSON.stringify(favoritos));
+}, [favoritos]);
+
+const toggleFavorito = (produto) => {
+  setFavoritos((prev) => {
+    const jaFavoritado = prev.find (item => item.id === produto.id)
+
+    if (jaFavoritado) {
+      return prev.filter(item => item.id !== produto.id);
+    } else {
+      return [...prev, produto]
+    }
+  })
+}
+
+  const [nomeUsuario, setNomeUsuario] = useState('Usuário');
+
+  const carregarNome = () => {
+  const dados = localStorage.getItem('@ConnectHub:userData');
+  if (dados) {
+    const objetoDados = JSON.parse(dados);
+    if (objetoDados.nome) {
+      setNomeUsuario(objetoDados.nome.split(' ')[0]);
+    }
+  }
+};
+  
+  useEffect(() => {
+
+    carregarNome();
+
+    window.addEventListener('storage', carregarNome);
+    return () => window.removeEventListener('storage', carregarNome);
+  }, []);
+
+  return (
+  <Router>
+    <div className='app-container'>
+      <header className='main-header'>
+        <div className='logo-area'>
+          <img src={logoImg} alt='iHealth Brasil' className='logo-img'/>
+            <div className='logo-text'>
+              <strong>ConnectHub</strong>
+              <span>Onde tecnologia e natureza se encontram</span>
+            </div>
+        </div>
+        <div className='search-bar'>
+          <Search className='search-icon' size={20}/>
+          <input type="text" placeholder='Pesquisar'/>
+        </div>
+        <div className='user-menu'>
+          <div className='profile-container' ref={profileRef}>
+            <button
+              className='profile-btn'
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              >
+                <User size={20}/>
+                <span>Olá, {nomeUsuario}!</span>
+                <ChevronDown size={14} className={`chevron-icon ${isProfileOpen ? 'rotate' : ''}`} />
+              </button>
 
     window.addEventListener('scroll', controlSubheader)
     return () => window.removeEventListener('scroll', controlSubheader)
