@@ -216,23 +216,6 @@ function App() {
     'Bioativos Apícolas': 'bioativos_apicolas',
   }
 
-  const [isVisible, setisVisible] = useState(true)
-  const [lastScrollY, setlastScrollY] = useState(0)
-
-  useEffect (() => {
-    const controlSubheader = () => {
-    if (window.scrollY > lastScrollY && window.scrollY > 100) {
-      setisVisible(false);  
-    } else {
-      setisVisible(true);
-    }
-    setlastScrollY(window.scrollY);
-  };
-  
-  window.addEventListener('scroll', controlSubheader);
-  return () => window.removeEventListener('scroll', controlSubheader);
-}, [lastScrollY]);
-
 const [isProfileOpen, setIsProfileOpen] = useState(false);
 const profileRef = useRef(null);
 const [isUserSidebarOpen, setIsUserSidebarOpen] = useState(false);
@@ -278,36 +261,6 @@ const toggleFavorito = (produto) => {
     window.addEventListener('storage', carregarNome);
     return () => window.removeEventListener('storage', carregarNome);
   }, []);
-
-  return (
-  <Router>
-    <div className='app-container'>
-      <header className='main-header'>
-        <div className='logo-area'>
-          <img src={logoImg} alt='iHealth Brasil' className='logo-img'/>
-            <div className='logo-text'>
-              <strong>ConnectHub</strong>
-              <span>Onde tecnologia e natureza se encontram</span>
-            </div>
-        </div>
-        <div className='search-bar'>
-          <Search className='search-icon' size={20}/>
-          <input type="text" placeholder='Pesquisar'/>
-        </div>
-        <div className='user-menu'>
-          <div className='profile-container' ref={profileRef}>
-            <button
-              className='profile-btn'
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              >
-                <User size={20}/>
-                <span>Olá, {nomeUsuario}!</span>
-                <ChevronDown size={14} className={`chevron-icon ${isProfileOpen ? 'rotate' : ''}`} />
-              </button>
-
-    window.addEventListener('scroll', controlSubheader)
-    return () => window.removeEventListener('scroll', controlSubheader)
-  }, [lastScrollY])
 
   const homeContent = (
     <>

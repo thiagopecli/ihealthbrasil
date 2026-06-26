@@ -36,7 +36,7 @@ Para implementar login social com Google:
 1. Crie o arquivo `frontend/.env` com base em `.env.example`:
 ```bash
 VITE_GOOGLE_CLIENT_ID=SEU_CLIENT_ID.apps.googleusercontent.com
-VITE_API_URL=http://localhost:8000/api
+VITE_API_URL=http://127.0.0.1:8000/api
 ```
 
 ### 3. Configurar Backend

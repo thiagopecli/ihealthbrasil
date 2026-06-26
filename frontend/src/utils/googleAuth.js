@@ -1,5 +1,6 @@
+import { buildApiUrl } from './api'
+
 const GOOGLE_SCRIPT_SRC = 'https://accounts.google.com/gsi/client'
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 function loadGoogleScript() {
   return new Promise((resolve, reject) => {
@@ -63,7 +64,7 @@ export async function getGoogleUserProfile() {
 }
 
 export async function authenticateWithGoogle(idToken, clientId) {
-  const response = await fetch(`${API_BASE_URL}/auth/google-oauth/`, {
+  const response = await fetch(buildApiUrl('/auth/google-oauth/'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

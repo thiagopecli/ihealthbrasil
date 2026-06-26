@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import { useLanguage } from '../LanguageContext'
+import { buildApiUrl } from '../utils/api'
 
 export default function Profile() {
   const { t } = useLanguage()
@@ -21,8 +22,7 @@ export default function Profile() {
       }
 
       try {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-        const res = await fetch(`${apiBase}/auth/me/`, {
+        const res = await fetch(buildApiUrl('/auth/me/'), {
           headers: { Authorization: `Bearer ${token}` },
         })
 
@@ -36,7 +36,7 @@ export default function Profile() {
           const data = await res.json()
           setUser(data)
         }
-      } catch (e) {
+      } catch {
         setError('fetch_error')
       } finally {
         setLoading(false)

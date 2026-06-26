@@ -6,6 +6,7 @@ import Header from '../components/Header'
 import Footer from '../components/Footer'
 import logoImg from '../assets/Logo_preto_branco.png.png'
 import { authenticateWithGoogle } from '../utils/googleAuth'
+import { buildApiUrl } from '../utils/api'
 
 export default function Login() {
   const { t } = useLanguage()
@@ -48,8 +49,7 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-      const res = await fetch(`${apiBase}/auth/token/`, {
+      const res = await fetch(buildApiUrl('/auth/token/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: email, password }),
@@ -67,7 +67,7 @@ export default function Login() {
       localStorage.setItem('refresh_token', data.refresh)
 
       // fetch /me
-      const meRes = await fetch(`${apiBase}/auth/me/`, {
+      const meRes = await fetch(buildApiUrl('/auth/me/'), {
         headers: { Authorization: `Bearer ${data.access}` },
       })
       if (meRes.ok) {
@@ -134,11 +134,10 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-      const res = await fetch(`${apiBase}/auth/token/`, {
+      const res = await fetch(buildApiUrl('/auth/token/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'test_user_ai@example.com', password: 'TestPass123' }),
+        body: JSON.stringify({ username: 'test_user_ai', password: 'TestPass123' }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -149,7 +148,7 @@ export default function Login() {
 
       localStorage.setItem('access_token', data.access)
       localStorage.setItem('refresh_token', data.refresh)
-      const meRes = await fetch(`${apiBase}/auth/me/`, { headers: { Authorization: `Bearer ${data.access}` } })
+      const meRes = await fetch(buildApiUrl('/auth/me/'), { headers: { Authorization: `Bearer ${data.access}` } })
       if (meRes.ok) {
         const me = await meRes.json()
         localStorage.setItem('user', JSON.stringify(me))

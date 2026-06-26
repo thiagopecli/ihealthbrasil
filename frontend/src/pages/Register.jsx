@@ -6,6 +6,7 @@ import Header from '../components/Header'
 import Footer from '../components/Footer'
 import logoImg from '../assets/Logo_preto_branco.png.png'
 import { getGoogleUserProfile } from '../utils/googleAuth'
+import { buildApiUrl } from '../utils/api'
 
 export default function Register() {
   const { t } = useLanguage()
@@ -57,7 +58,6 @@ export default function Register() {
     if (!validate()) return
     setLoading(true)
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
       // prepare payload
       const names = name.trim().split(/\s+/)
       const first_name = names.shift() || ''
@@ -71,7 +71,7 @@ export default function Register() {
         phone_number: phone || '',
       }
 
-      const res = await fetch(`${apiBase}/auth/register/`, {
+      const res = await fetch(buildApiUrl('/auth/register/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -87,7 +87,7 @@ export default function Register() {
       }
 
       // Auto-login after register
-      const tokenRes = await fetch(`${apiBase}/auth/token/`, {
+      const tokenRes = await fetch(buildApiUrl('/auth/token/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: payload.username, password }),
@@ -97,7 +97,7 @@ export default function Register() {
         localStorage.setItem('access_token', tokenData.access)
         localStorage.setItem('refresh_token', tokenData.refresh)
 
-        const meRes = await fetch(`${apiBase}/auth/me/`, {
+        const meRes = await fetch(buildApiUrl('/auth/me/'), {
           headers: { Authorization: `Bearer ${tokenData.access}` },
         })
         if (meRes.ok) {
