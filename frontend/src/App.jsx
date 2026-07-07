@@ -1,6 +1,6 @@
 import './App.css'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, MapPin } from 'lucide-react'
+import { ChevronDown, MapPin, Search, User } from 'lucide-react'
 import { useLanguage } from './LanguageContext'
 import Header from './components/Header'
 import BannerCarousel from './components/BannerCarousel'
@@ -21,19 +21,31 @@ function App() {
   const [isLocating, setIsLocating] = useState(false)
   const [locationMessage, setLocationMessage] = useState('')
   const [currentLocation, setCurrentLocation] = useState('São Paulo, SP')
+  
+  const [categoriaAtiva, setCategoriaAtiva] = useState('Todos')
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [nomeUsuario, setNomeUsuario] = useState('Usuário')
+
   const langRef = useRef(null)
   const locationRef = useRef(null)
+  const profileRef = useRef(null)
 
   const { lang, setLang, t } = useLanguage()
 
+  // Fechar menus ao clicar fora
   useEffect(() => {
     function handleClickFora(event) {
       if (langRef.current && !langRef.current.contains(event.target)) {
         setIsLangOpen(false)
       }
-
       if (locationRef.current && !locationRef.current.contains(event.target)) {
         setIsLocationOpen(false)
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setIsProfileOpen(false)
       }
     }
 
@@ -43,18 +55,78 @@ function App() {
     }
   }, [])
 
+// Controle do scroll do Subheader
+  useEffect(() => {
+    const controlSubheader = () => {
+      const currentScrollY = window.scrollY
+
+      if (currentScrollY > 100) {
+        setLastScrollY((prevScrollY) => {
+          if (currentScrollY > prevScrollY) {
+            setIsVisible(false)
+          } else {
+            setIsVisible(true)
+          }
+          return currentScrollY
+        })
+      } else {
+        setIsVisible(true)
+        setLastScrollY(currentScrollY)
+      }
+    }
+
+    window.addEventListener('scroll', controlSubheader)
+    return () => window.removeEventListener('scroll', controlSubheader)
+  }, [])
+
+  // Carregar nome do usuário do localStorage
+  const carregarNome = () => {
+    const dados = localStorage.getItem('@ConnectHub:userData')
+    if (dados) {
+      const objetoDados = JSON.parse(dados)
+      if (objetoDados.nome) {
+        setNomeUsuario(objetoDados.nome.split(' ')[0])
+      }
+    }
+  }
+
+  useEffect(() => {
+    carregarNome()
+    window.addEventListener('storage', carregarNome)
+    return () => window.removeEventListener('storage', carregarNome)
+  }, [])
+
+  // Favoritos
+  const [favoritos, setFavoritos] = useState(() => {
+    const salvos = localStorage.getItem('@ConnectHub:favoritos')
+    return salvos ? JSON.parse(salvos) : []
+  })
+
+  useEffect(() => {
+    localStorage.setItem('@ConnectHub:favoritos', JSON.stringify(favoritos))
+  }, [favoritos])
+
+  const toggleFavorito = (produto) => {
+    setFavoritos((prev) => {
+      const jaFavoritado = prev.find((item) => item.id === produto.id)
+      if (jaFavoritado) {
+        return prev.filter((item) => item.id !== produto.id)
+      } else {
+        return [...prev, produto]
+      }
+    })
+  }
+
   function formatCep(value) {
     const digits = value.replace(/\D/g, '').slice(0, 8)
     if (digits.length <= 5) {
       return digits
     }
-
     return `${digits.slice(0, 5)}-${digits.slice(5)}`
   }
 
   async function handleCepSearch(event) {
     event.preventDefault()
-
     const cep = cepValue.replace(/\D/g, '')
     if (cep.length !== 8) {
       setCepStatus(t('cep_invalid'))
@@ -113,11 +185,7 @@ function App() {
           const { latitude, longitude } = position.coords
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
-            {
-              headers: {
-                Accept: 'application/json',
-              },
-            },
+            { headers: { Accept: 'application/json' } }
           )
 
           if (!response.ok) {
@@ -166,47 +234,13 @@ function App() {
   const displayBanners = [...banners, ...banners, ...banners]
 
   const produtosDestaque = [
-    {
-      id: 1,
-      nome: 'Vitamina C',
-      preco: '49,90',
-      categoria: 'Suplementos',
-      imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80',
-    },
-    {
-      id: 2,
-      nome: 'Ômega 3',
-      preco: '79,90',
-      categoria: 'Saúde',
-      imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80',
-    },
-    {
-      id: 3,
-      nome: 'Whey Protein',
-      preco: '129,90',
-      categoria: 'Esporte',
-      imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80',
-    },
-    {
-      id: 4,
-      nome: 'Magnésio Quelato',
-      preco: '35,00',
-      categoria: 'Minerais',
-      imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80',
-    },
+    { id: 1, nome: 'Vitamina C', preco: '49,90', categoria: 'Suplementos', imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80' },
+    { id: 2, nome: 'Ômega 3', preco: '79,90', categoria: 'Saúde', imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80' },
+    { id: 3, nome: 'Whey Protein', preco: '129,90', categoria: 'Esporte', imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80' },
+    { id: 4, nome: 'Magnésio Quelato', preco: '35,00', categoria: 'Minerais', imagem: 'https://img.freepik.com/fotos-gratis/embalagens-de-comprimidos-e-capsulas-de-medicamentos_1339-2255.jpg?semt=ais_hybrid&w=740&q=80' },
   ]
 
   const categorias = ['Todos', 'Cosméticos', 'Sublinguais', 'Veterinários', 'Bioativos Apícolas']
-
-  const [categoriaAtiva, setCategoriaAtiva] = useState('Todos')
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isVisible, setIsVisible] = useState(true)
-  const [lastScrollY, setLastScrollY] = useState(0)
-
-  const produtosFiltrados =
-    categoriaAtiva === 'Todos'
-      ? produtosDestaque
-      : produtosDestaque.filter((produto) => produto.categoria === categoriaAtiva)
 
   const categoryKeyMap = {
     Todos: 'todos',
@@ -216,98 +250,10 @@ function App() {
     'Bioativos Apícolas': 'bioativos_apicolas',
   }
 
-  const [isVisible, setisVisible] = useState(true)
-  const [lastScrollY, setlastScrollY] = useState(0)
-
-  useEffect (() => {
-    const controlSubheader = () => {
-    if (window.scrollY > lastScrollY && window.scrollY > 100) {
-      setisVisible(false);  
-    } else {
-      setisVisible(true);
-    }
-    setlastScrollY(window.scrollY);
-  };
-  
-  window.addEventListener('scroll', controlSubheader);
-  return () => window.removeEventListener('scroll', controlSubheader);
-}, [lastScrollY]);
-
-const [isProfileOpen, setIsProfileOpen] = useState(false);
-const profileRef = useRef(null);
-const [isUserSidebarOpen, setIsUserSidebarOpen] = useState(false);
-const [sidebarContent, setSidebarContent] = useState('');
-
-const [favoritos, setFavoritos] = useState(() => {
-  const salvos = localStorage.getItem('@ConnectHub:favoritos');
-  return salvos ? JSON.parse(salvos) : [];
-});
-
-useEffect(() => {
-  localStorage.setItem('@ConnectHub:favoritos', JSON.stringify(favoritos));
-}, [favoritos]);
-
-const toggleFavorito = (produto) => {
-  setFavoritos((prev) => {
-    const jaFavoritado = prev.find (item => item.id === produto.id)
-
-    if (jaFavoritado) {
-      return prev.filter(item => item.id !== produto.id);
-    } else {
-      return [...prev, produto]
-    }
-  })
-}
-
-  const [nomeUsuario, setNomeUsuario] = useState('Usuário');
-
-  const carregarNome = () => {
-  const dados = localStorage.getItem('@ConnectHub:userData');
-  if (dados) {
-    const objetoDados = JSON.parse(dados);
-    if (objetoDados.nome) {
-      setNomeUsuario(objetoDados.nome.split(' ')[0]);
-    }
-  }
-};
-  
-  useEffect(() => {
-
-    carregarNome();
-
-    window.addEventListener('storage', carregarNome);
-    return () => window.removeEventListener('storage', carregarNome);
-  }, []);
-
-  return (
-  <Router>
-    <div className='app-container'>
-      <header className='main-header'>
-        <div className='logo-area'>
-          <img src={logoImg} alt='iHealth Brasil' className='logo-img'/>
-            <div className='logo-text'>
-              <strong>ConnectHub</strong>
-              <span>Onde tecnologia e natureza se encontram</span>
-            </div>
-        </div>
-        <div className='search-bar'>
-          <Search className='search-icon' size={20}/>
-          <input type="text" placeholder='Pesquisar'/>
-        </div>
-        <div className='user-menu'>
-          <div className='profile-container' ref={profileRef}>
-            <button
-              className='profile-btn'
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              >
-                <User size={20}/>
-                <span>Olá, {nomeUsuario}!</span>
-                <ChevronDown size={14} className={`chevron-icon ${isProfileOpen ? 'rotate' : ''}`} />
-              </button>
-
-    window.addEventListener('scroll', controlSubheader)
-    return () => window.removeEventListener('scroll', controlSubheader)
-  }, [lastScrollY])
+  const produtosFiltrados =
+    categoriaAtiva === 'Todos'
+      ? produtosDestaque
+      : produtosDestaque.filter((produto) => produto.categoria === categoriaAtiva)
 
   const homeContent = (
     <>
@@ -324,9 +270,7 @@ const toggleFavorito = (produto) => {
           <aside className={`filter-sidebar ${isFilterOpen ? 'open' : ''}`}>
             <div className='sidebar-header'>
               <h3>{t('filtros')}</h3>
-              <button className='close-btn' onClick={() => setIsFilterOpen(false)}>
-                ✕
-              </button>
+              <button className='close-btn' onClick={() => setIsFilterOpen(false)}>✕</button>
             </div>
 
             <div className='filter-groups'>
@@ -414,38 +358,10 @@ const toggleFavorito = (produto) => {
 
             {isLangOpen && (
               <ul className='lang-dropdown'>
-                <li
-                  onClick={() => {
-                    setLang('pt')
-                    setIsLangOpen(false)
-                  }}
-                >
-                  <span className='flag'>🇧🇷</span> Português
-                </li>
-                <li
-                  onClick={() => {
-                    setLang('en')
-                    setIsLangOpen(false)
-                  }}
-                >
-                  <span className='flag'>🇺🇸</span> English
-                </li>
-                <li
-                  onClick={() => {
-                    setLang('es')
-                    setIsLangOpen(false)
-                  }}
-                >
-                  <span className='flag'>🇪🇸</span> Español
-                </li>
-                <li
-                  onClick={() => {
-                    setLang('fr')
-                    setIsLangOpen(false)
-                  }}
-                >
-                  <span className='flag'>🇫🇷</span> Français
-                </li>
+                <li onClick={() => { setLang('pt'); setIsLangOpen(false); }}><span className='flag'>🇧🇷</span> Português</li>
+                <li onClick={() => { setLang('en'); setIsLangOpen(false); }}><span className='flag'>🇺🇸</span> English</li>
+                <li onClick={() => { setLang('es'); setIsLangOpen(false); }}><span className='flag'>🇪🇸</span> Español</li>
+                <li onClick={() => { setLang('fr'); setIsLangOpen(false); }}><span className='flag'>🇫🇷</span> Français</li>
               </ul>
             )}
           </div>
